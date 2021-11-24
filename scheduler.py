@@ -20,6 +20,7 @@ class Scheduler:
         signal.signal(signal.SIGTERM, self.stop)
         self.ready = deque()
         self.event = threading.Event()
+        self.event.clear()
         self.sleeping = []
         self.running = False
 
@@ -27,6 +28,7 @@ class Scheduler:
     def run(self, func):
         """Adds the func to the ready queue immediately"""
         self.ready.append(func)
+        self.event.set()
 
     ###########################
     def queue(self, func, sleep, forever=False):
@@ -36,6 +38,7 @@ class Scheduler:
         """
         deadline = time.time() + sleep
         heapq.heappush(self.sleeping, (deadline, func, sleep, forever))
+        self.event.set()
 
     ###########################
     def stop(self, signum=0, frame=None):
@@ -56,6 +59,9 @@ class Scheduler:
             if not self.running:
                 break
 
+            if self.event.is_set():
+                self.event.clear()
+
             if not self.ready:
                 if self.sleeping:
                     deadline = self.sleeping[0][0]
@@ -63,7 +69,7 @@ class Scheduler:
                     if timeout < 1:
                         timeout = None
                     elif timeout > 10:
-                        timeout = 30
+                        timeout = 10
                 else:
                     timeout = None
 

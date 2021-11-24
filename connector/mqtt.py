@@ -181,3 +181,6 @@ class connector(mqtt.Client):
         return self._mqttc.publish(topic, payload=payload, qos=qos, retain=retain)
 
     #########################################
+    def ping(self, topic):
+        """Send ping message"""
+        self.publish(topic, "ping")

@@ -52,7 +52,7 @@ MQTT_HA_PREFIX = "homeassistant"
 MQTT_DEVICE_PREFIX = "devices"
 MQTT_TOPICS = ["command", "event"]
 
-MQTT_SUBS = ["homeassistant/status"]
+MQTT_SUBS = ["homeassistant/event"]
 for topic in MQTT_TOPICS:
     MQTT_SUBS.append(f"{MQTT_DEVICE_PREFIX}/{HOSTNAME}/{topic}")
 

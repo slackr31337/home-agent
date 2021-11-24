@@ -30,9 +30,9 @@ def run_service(_args, _sensors=None):
     sched.queue(agent.metrics, _args.metrics_interval, True)
     sched.queue(agent.events, _args.events_interval, True)
     sched.queue(agent.modules, _args.modules_interval, True)
+    sched.queue(agent.conn_ping, 60, True)
 
     sched.start()
-
     agent.stop()
 
     LOGGER.info("[HomeAgent] has stopped")

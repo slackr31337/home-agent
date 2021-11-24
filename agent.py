@@ -196,6 +196,11 @@ class HomeAgent:
                     self.sensors[sensor] = {}
 
     ###########################################################
+    def conn_ping(self):
+        """Ping Home Assistant connector"""
+        self._connector.ping("homeassistant/ping")
+
+    ###########################################################
     def get_identifier(self):
         """Get a unique id for this device"""
 
@@ -275,12 +280,15 @@ class HomeAgent:
         payload = _data.get(PAYLOAD)
         LOGGER.info("%s command: %s payload: %s", LOG_PREFIX, command, payload)
 
-        if command == "status":
-            if "birth" in payload or "online" in payload:
-                self._ha_connected = True
-                self.start()
+        if command == "event":
+            if payload.lower() in ["birth", "online", "pong"]:
+                if not self._ha_connected:
+                    LOGGER.info("%s Home Assistant connection is online", LOG_PREFIX)
+                    self._ha_connected = True
+                    self.start()
 
-            elif "will" in payload or "offline" in payload:
+            elif payload.lower() in ["will", "offline"]:
+                LOGGER.warning("%s Home Assistant connection offline", LOG_PREFIX)
                 self._ha_connected = False
 
         elif command == "set":
