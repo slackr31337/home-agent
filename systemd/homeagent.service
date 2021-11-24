@@ -1,0 +1,17 @@
+[Unit]
+Description=Home-agent Endpoint Service
+After=network.target
+
+[Service]
+Type=simple
+User=user
+SyslogIdentifier=homeagent
+Restart=always
+TimeoutStartSec=10
+RestartSec=10
+WorkingDirectory=/opt/homeagent
+EnvironmentFile=/opt/homeagent/scripts/envvars.sh
+ExecStart=/opt/homeagent/env/bin/python3 /opt/homeagent/run.py -s
+
+[Install]
+WantedBy=multi-user.target

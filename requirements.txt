@@ -1,0 +1,15 @@
+py-dmidecode; sys_platform == 'linux'
+distro; sys_platform == 'linux'
+sounddevice; sys_platform == 'linux'
+dbus-python; sys_platform == 'linux'
+pywin32; platform_system == 'Windows'
+plyer; sys_platform == 'linux'
+plyer; platform_system == 'Windows'
+mss; platform_system == 'Windows'
+wmi; platform_system == 'Windows'
+requests
+python-dateutil
+paho-mqtt
+py-cpuinfo
+psutil
+HomeAssistant-API
