@@ -27,9 +27,9 @@ def run_service(_args, _sensors=None):
         agent.start,
     )
 
-    sched.queue(_args.metrics_interval, agent.metrics, True)
-    sched.queue(_args.events_interval, agent.events, True)
-    sched.queue(_args.modules_interval, agent.modules, True)
+    sched.queue(agent.metrics, _args.metrics_interval, True)
+    sched.queue(agent.events, _args.events_interval, True)
+    sched.queue(agent.modules, _args.modules_interval, True)
 
     sched.start()
 
