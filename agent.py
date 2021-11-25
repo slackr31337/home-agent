@@ -288,9 +288,17 @@ class HomeAgent:
     def process_cmd(self, _data):
         """Process message from Home Assistant"""
 
-        command = _data.get(TOPIC, "").split("/")[-1]
+        topic = _data.get(TOPIC, "").split("/")
+        command = topic[-1]
         payload = _data.get(PAYLOAD)
-        LOGGER.info("%s command: %s payload: %s", LOG_PREFIX, command, payload)
+        LOGGER.info(
+            "%s %s.%s command: %s payload: %s",
+            LOG_PREFIX,
+            topic[-3],
+            topic[-2],
+            command,
+            payload,
+        )
 
         if command == "event":
             if payload.lower() in ["birth", "online", "pong"]:
@@ -380,7 +388,7 @@ class HomeAgent:
 
         _sensor_attribs = self._modules[_module].sensor_attribs
         if _sensor_attribs:
-            self._sensor_attribs.update(_sensor_attribs)
+            self._config.sensors.attribs.update(_sensor_attribs)
 
         _sensors_set = self._modules[_module].sensors_set
         for _sensor in _sensors:
