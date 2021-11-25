@@ -13,9 +13,6 @@ import json
 from log import LOGGER
 from ha_sensors import setup_sensor, setup_device
 from config import (
-    HOSTNAME,
-    FRIENDLY_NAME,
-    PLATFORM,
     MQTT_HA_PREFIX,
     MQTT_DEVICE_PREFIX,
     MQTT_SUBS,
@@ -23,7 +20,6 @@ from config import (
     TYPE_MAP,
     ATTRIB_MAP,
     PUBLISH_SENSORS,
-    IP_LOCATION_MAP,
     DEVICE_AVAILABILITY,
 )
 
@@ -31,6 +27,9 @@ from const import (
     STATE,
     TOPIC,
     PAYLOAD,
+    SENSORS,
+    TYPES,
+    ATTRIBS,
 )
 
 LOG_PREFIX = "[HomeAgent]"
@@ -39,9 +38,9 @@ class HomeAgent:
     """Class to collect and report endpoint data"""
 
     ###########################################################
-    def __init__(self, _args, sensors=None):
+    def __init__(self, config, sensors=None):
         """Init class"""
-        self._args = _args
+        self._config = config
         self._connector = None
         self._ha_connected = False
         self._modules = {}
@@ -49,9 +48,11 @@ class HomeAgent:
         self._services = {}
         self.device = {}
         self._last_sensors = {}
-        self._sensor_types = TYPE_MAP
-        self._sensor_attribs = ATTRIB_MAP
-        self.identifier = None
+        self._config.sensors = {
+            TYPES: TYPE_MAP,
+            ATTRIBS: ATTRIB_MAP,
+        }
+        # self.identifier = None
         self.sysinfo_class = None
         self.states = None
         self.sensors = sensors
@@ -72,15 +73,18 @@ class HomeAgent:
         LOGGER.info(
             "%s Loading OS module: %s",
             LOG_PREFIX,
-            PLATFORM,
+            self._config.platform,
         )
-        if not os.path.exists(f"{mod_dir}/{PLATFORM}.py"):
+        if not os.path.exists(f"{mod_dir}/{self._config.platform}.py"):
             LOGGER.error(
-                "%s OS module [%s] missing from %s", LOG_PREFIX, PLATFORM, mod_dir
+                "%s OS module [%s] missing from %s",
+                LOG_PREFIX,
+                self._config.platform,
+                mod_dir,
             )
             raise "OS module missing"
 
-        os_module = os.path.join(mod_dir, f"{PLATFORM}.py")
+        os_module = os.path.join(mod_dir, f"{self._config.platform}.py")
 
         _name = pathlib.Path(os_module).stem
         _module = importlib.import_module(_name)
@@ -94,8 +98,10 @@ class HomeAgent:
         mod_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "connector")
         sys.path.append(mod_dir)
 
-        LOGGER.info("%s Loading connector module: %s", LOG_PREFIX, self._args.connector)
-        conn_module = os.path.join(mod_dir, f"{self._args.connector}.py")
+        LOGGER.info(
+            "%s Loading connector module: %s", LOG_PREFIX, self._config.connector
+        )
+        conn_module = os.path.join(mod_dir, f"{self._config.connector}.py")
 
         _name = pathlib.Path(conn_module).stem
         _module = importlib.import_module(_name)
@@ -103,8 +109,9 @@ class HomeAgent:
 
         _connected = threading.Event()
         _connected.clear()
-        client_id = f"homeagent_{HOSTNAME}_{int(time.time())}"
-        self._connector = _mod_class(self._args, _connected, client_id)
+
+        client_id = f"homeagent_{self._config.hostname}_{int(time.time())}"
+        self._connector = _mod_class(self._config, _connected, client_id)
 
         if self._connector.name == "mqtt":
             self._connector.message_callback(self.message_receive)
@@ -131,7 +138,10 @@ class HomeAgent:
     def _load_modules(self):
         """Load module from directory modules"""
 
-        mod_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "modules")
+        mod_dir = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)),
+            f"modules/{self._config.platform}",
+        )
         sys.path.append(mod_dir)
 
         LOGGER.debug("%s Loading modules from %s", LOG_PREFIX, mod_dir)
@@ -139,15 +149,17 @@ class HomeAgent:
 
         for _mod in _mods:
             _name = pathlib.Path(_mod).stem
-            LOGGER.debug("%s Import module: %s", LOG_PREFIX, _name)
+            LOGGER.debug(
+                "%s Import module: %s-%s", LOG_PREFIX, self._config.platform, _name
+            )
 
             _module = importlib.import_module(_name)
             _mod_class = getattr(_module, "agent_module")
-            if PLATFORM not in _mod_class.platform:
-                LOGGER.warning(
-                    "%s [%s] Module does not support %s", LOG_PREFIX, _name, PLATFORM
-                )
-                continue
+            # if self._config.platform not in _mod_class.platform:
+            #    LOGGER.warning(
+            #        "%s [%s] Module does not support %s", LOG_PREFIX, _name, self._config.platform
+            #    )
+            #    continue
 
             try:
                 _class = _mod_class()
@@ -213,7 +225,7 @@ class HomeAgent:
                 _id = None
 
         LOGGER.info("%s Device identifier: %s", LOG_PREFIX, _id)
-        self.identifier = _id
+        self._config.identifier = _id
 
     ###########################################################
     def metrics(self):
@@ -315,7 +327,7 @@ class HomeAgent:
 
         self.message_send(
             {
-                TOPIC: f"{MQTT_DEVICE_PREFIX}/{HOSTNAME}/availability",
+                TOPIC: f"{MQTT_DEVICE_PREFIX}/{self._config.hostname}/availability",
                 PAYLOAD: _state,
             }
         )
@@ -324,11 +336,15 @@ class HomeAgent:
     def _publish_device(self):
         """Publish device config"""
 
-        LOGGER.debug("%s publish_device %s", LOG_PREFIX, HOSTNAME)
-        self.device = setup_device(FRIENDLY_NAME, self.states, self.identifier)
+        LOGGER.debug("%s publish_device %s", LOG_PREFIX, self._config.hostname)
+        self.device = setup_device(
+            self._config.host.friendly_name, self.states, self._config.identifier
+        )
         _attrib = ATTRIB_MAP.get("device_automation")
 
-        _data = setup_sensor(HOSTNAME, "trigger_turn_on", "device_automation", _attrib)
+        _data = setup_sensor(
+            self._config.hostname, "trigger_turn_on", "device_automation", _attrib
+        )
         _data[PAYLOAD].update(self.device)
         _data[PAYLOAD].update(DEVICE_AVAILABILITY)
 
@@ -347,7 +363,7 @@ class HomeAgent:
                 "%s Setup service %s for module %s", LOG_PREFIX, _service, _module
             )
             self._services[_service] = getattr(self._modules[_module], _service)
-            topic = f"{MQTT_DEVICE_PREFIX}/{HOSTNAME}/{_service}"
+            topic = f"{MQTT_DEVICE_PREFIX}/{self._config.hostname}/{_service}"
             self._connector.subscribe_to(topic)
 
     ###########################################################
@@ -360,7 +376,7 @@ class HomeAgent:
 
         _sensor_types = self._modules[_module].sensor_types
         if _sensor_types:
-            self._sensor_types.update(_sensor_types)
+            self._config.sensors.types.update(_sensor_types)
 
         _sensor_attribs = self._modules[_module].sensor_attribs
         if _sensor_attribs:
@@ -382,14 +398,14 @@ class HomeAgent:
 
         for sensor in tuple(self.sensors.keys()):
             _name = sensor.title().replace("_", " ")
-            _type = self._sensor_types.get(sensor, "sensor")
+            _type = self._config.sensors.types.get(sensor, "sensor")
             LOGGER.debug("%s setup_sensor %s type %s ", LOG_PREFIX, sensor, _type)
 
-            _attribs = self._sensor_attribs.get(_type)
-            _data = setup_sensor(HOSTNAME, _name, _type, _attribs)
+            _attribs = self._config.sensors.attribs.get(_type)
+            _data = setup_sensor(self._config.hostname, _name, _type, _attribs)
 
             _data[PAYLOAD].update(DEVICE_AVAILABILITY)
-            device = {"device": {"identifiers": self.identifier}}
+            device = {"device": {"identifiers": self._config.identifier}}
             _data[PAYLOAD].update(device)
 
             self.message_send(_data)
@@ -460,21 +476,27 @@ class HomeAgent:
     def _setup_device_tracker(self):
         """Publish device_tracker to MQTT broker"""
 
-        _attribs = self._sensor_attribs.get("device_tracker")
-        _data = setup_sensor(HOSTNAME, "location", "device_tracker", _attribs)
-        LOGGER.debug("%s Setup device_tracker %s", LOG_PREFIX, f"{HOSTNAME}_location")
+        _attribs = self._config.sensors.attribs.get("device_tracker")
+        _data = setup_sensor(
+            self._config.hostname, "location", "device_tracker", _attribs
+        )
+        LOGGER.debug(
+            "%s Setup device_tracker %s",
+            LOG_PREFIX,
+            f"{self._config.hostname}_location",
+        )
 
         _data[PAYLOAD].update(DEVICE_AVAILABILITY)
         _data[PAYLOAD].update(
             {
-                "device": {"identifiers": self.identifier},
-                "name": f"{HOSTNAME}_location",
+                "device": {"identifiers": self._config.identifier},
+                "name": f"{self._config.hostname}_location",
                 "source_type": "router",
             }
         )
         self.message_send(_data)
 
-        _data[PAYLOAD].update({"name": FRIENDLY_NAME})
+        _data[PAYLOAD].update({"name": self._config.host.friendly_name})
         self.message_send(_data)
 
     ###########################################################
@@ -485,8 +507,8 @@ class HomeAgent:
         LOGGER.debug("%s Running device_tracker.%s update", LOG_PREFIX, unique_id)
 
         location = "not_home"
-        for _net, _loc in IP_LOCATION_MAP.items():
-            if self.states["ip_address"].startswith(_net):
+        for _net, _loc in self._config.locations.items():
+            if self.states["ip_address"].startswith(_net.split("0/", 2)[0]):
                 location = _loc
 
         _topic = f"{MQTT_HA_PREFIX}/device_tracker/{unique_id}/state"
@@ -494,7 +516,7 @@ class HomeAgent:
 
         payload = {
             "source_type": "router",
-            "hostname": HOSTNAME,
+            "hostname": self._config.hostname,
         }
 
         mac_address = self.states.get("mac_address")

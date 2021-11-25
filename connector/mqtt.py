@@ -31,7 +31,7 @@ class connector(mqtt.Client):
     #########################################
     def __init__(
         self,
-        _args,
+        _config,
         _connected,
         clientid,
         **kwargs,
@@ -44,8 +44,8 @@ class connector(mqtt.Client):
         self._callback = None
         self._subscribe = []
 
-        self._host = _args.mqtt_host
-        self._port = _args.mqtt_port
+        self._host = _config.mqtt.host
+        self._port = _config.mqtt.port
 
         if clientid is None:
             clientid = f"mqtt_client_{int(time.time())}"
@@ -64,7 +64,9 @@ class connector(mqtt.Client):
 
             self._mqttc.tls_insecure_set(True)
 
-        self._mqttc.username_pw_set(username=_args.mqtt_user, password=_args.mqtt_pass)
+        self._mqttc.username_pw_set(
+            username=_config.mqtt.user, password=_config.mqtt.password
+        )
         self._mqttc.on_connect = self.mqtt_on_connect
         self._mqttc.on_disconnect = self.mqtt_on_disconnect
 

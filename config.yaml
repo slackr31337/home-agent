@@ -1,0 +1,30 @@
+# Home Agent configuration variables
+
+connector: mqtt
+
+mqtt:
+  host: mqtt.local
+  port: 1883
+  user: ""
+  password: ""
+
+api:
+  url: http://homeassistant.local
+  token: "LongLivedAccessToken"
+
+intervals:
+  metrics: 15
+  events: 60
+  modules: 10
+  ping: 300
+
+host:
+  friendly_name: "My Laptop"
+
+device_tracker:
+  home: "192.168.1.0/24"
+  work: "192.168.2.0/24"
+
+locations:
+  home: "home"
+  work: "My Work"

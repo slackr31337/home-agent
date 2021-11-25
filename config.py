@@ -2,14 +2,18 @@
 
 import os
 import platform
+import yaml
 
-
-FRIENDLY_NAME = "Rob's Laptop"
+CONFIG_FILE = "config.yaml"
+# FRIENDLY_NAME = "Rob's Laptop"
 HOSTNAME = str(platform.uname().node).lower()
 PLATFORM = str(platform.system()).lower()
 
-EVENT_LOOP_DELTA = 300
-METRICS_DELTA = 30
+# EVENT_LOOP_DELTA = 300
+# METRICS_DELTA = 30
+INTERVAL_METRICS = 15
+INTERVAL_EVENTS = 300
+INTERVAL_MODULES = 10
 
 API_URL = os.environ.get("API_URL", "http://homeassistant.local")
 API_TOKEN = os.environ.get("API_TOKEN", "Long-Lived Access Token")
@@ -20,14 +24,6 @@ MQTT_HOST = os.environ.get("MQTT_HOST", "127.0.0.1")
 MQTT_PORT = int(os.environ.get("MQTT_PORT", 1883))
 
 DEFAULT_CONNECTOR = os.environ.get("DEFAULT_CONNECTOR", "mqtt")
-
-HOME_PREFIX = "10.30.0."
-WORK_PREFIX = "192.168.16."
-
-IP_LOCATION_MAP = {
-    HOME_PREFIX: "home",
-    WORK_PREFIX: "I-Evolve",
-}
 
 PUBLISH_SENSORS = {
     "ip_address": {},
@@ -46,7 +42,6 @@ PUBLISH_SENSORS = {
     "battery_percent": {},
     "battery_plugged_in": {},
 }
-
 
 MQTT_HA_PREFIX = "homeassistant"
 MQTT_DEVICE_PREFIX = "devices"
@@ -126,3 +121,72 @@ if PLATFORM == "linux":
 
 elif PLATFORM == "windows":
     TMP_DIR = "c:\windows\temp"
+
+#########################################
+def load_config(_file=CONFIG_FILE):
+    """Load configuration from yaml"""
+    with open(_file, "r", encoding="utf-8") as conf:
+        _config = yaml.safe_load(conf)
+    return _config
+
+
+#########################################
+class Config:
+    """Configuration class"""
+
+    platform = PLATFORM
+    hostname = HOSTNAME
+
+    #########################################
+    def __init__(self, _dict=None):
+        object.__setattr__(self, "_Config__dict", _dict)
+
+    #########################################
+    def get(self, name, default=None):
+        """Dictionary get method"""
+        return self.__dict.get(name, default)
+
+    #########################################
+    def items(self):
+        return self.__dict.items()
+
+    #########################################
+    def update(self, items):
+        return self.__dict.update(items)
+
+    #########################################
+    def __getitem__(self, name):
+        """Dictionary-like access / updates"""
+        value = self.__dict[name]
+        if isinstance(value, dict):
+            value = Config(value)
+        return value
+
+    #########################################
+    def __setitem__(self, name, value):
+        self.__dict[name] = value
+
+    #########################################
+    def __delitem__(self, name):
+        del self.__dict[name]
+
+    #########################################
+    def __getattr__(self, name):
+        """Object-like access / updates"""
+        return self[name]
+
+    #########################################
+    def __setattr__(self, name, value):
+        self[name] = value
+
+    #########################################
+    def __delattr__(self, name):
+        del self[name]
+
+    #########################################
+    def __repr__(self):
+        return "%s(%r)" % (type(self).__name__, self.__dict)
+
+    #########################################
+    def __str__(self):
+        return str(self.__dict)
