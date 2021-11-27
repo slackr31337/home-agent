@@ -5,11 +5,11 @@ connector: mqtt
 mqtt:
   host: mqtt.local
   port: 1883
-  user: ""
-  password: ""
+  user: "mqtt"
+  password: "secret_password"
 
 api:
-  url: http://homeassistant.local
+  host: homeassistant.local
   token: "LongLivedAccessToken"
 
 intervals:

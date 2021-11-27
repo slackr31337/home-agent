@@ -1,5 +1,8 @@
 """Class to scan for bluetooth devices"""
 
+import bluetooth
+
+
 from log import LOGGER
 
 SLUG = "bluetooth"
@@ -11,6 +14,7 @@ class agent_module:
     slug = SLUG
     platform = ["linux"]
     services = {}
+    state = {}
     sensors = ["bluetooth"]
     sensors_set = ["disable_scan"]
     sensor_types = {
@@ -70,3 +74,11 @@ class agent_module:
             self._disable_scan = bool(_value == "ON")
 
         return self._disable_scan
+
+    ##############################################################
+    def bluetooth(self):
+        """Scan for bluetooth devices"""
+        result = None
+        # devices = bluetooth.discover_devices(lookup_names=True, lookup_class=True)
+        # LOGGER.debug(devices)
+        return result

@@ -4,13 +4,12 @@ import os
 import platform
 import yaml
 
+from agent import LOG_PREFIX
+
 CONFIG_FILE = "config.yaml"
-# FRIENDLY_NAME = "Rob's Laptop"
 HOSTNAME = str(platform.uname().node).lower()
 PLATFORM = str(platform.system()).lower()
 
-# EVENT_LOOP_DELTA = 300
-# METRICS_DELTA = 30
 INTERVAL_METRICS = 15
 INTERVAL_EVENTS = 300
 INTERVAL_MODULES = 10
@@ -23,7 +22,7 @@ MQTT_PASS = os.environ.get("MQTT_PASS", "")
 MQTT_HOST = os.environ.get("MQTT_HOST", "127.0.0.1")
 MQTT_PORT = int(os.environ.get("MQTT_PORT", 1883))
 
-DEFAULT_CONNECTOR = os.environ.get("DEFAULT_CONNECTOR", "mqtt")
+# DEFAULT_CONNECTOR = os.environ.get("DEFAULT_CONNECTOR", "mqtt")
 
 PUBLISH_SENSORS = {
     "ip_address": {},
@@ -43,17 +42,17 @@ PUBLISH_SENSORS = {
     "battery_plugged_in": {},
 }
 
-MQTT_HA_PREFIX = "homeassistant"
-MQTT_DEVICE_PREFIX = "devices"
-MQTT_TOPICS = ["command", "event"]
+HA_PREFIX = "homeassistant"
+DEVICE_PREFIX = "devices"
+TOPICS = ["command", "event"]
 
-MQTT_SUBS = ["homeassistant/event"]
-for topic in MQTT_TOPICS:
-    MQTT_SUBS.append(f"{MQTT_DEVICE_PREFIX}/{HOSTNAME}/{topic}")
+SUBS = ["homeassistant/event"]
+for topic in TOPICS:
+    SUBS.append(f"{DEVICE_PREFIX}/{HOSTNAME}/{topic}")
 
 DEVICE_AVAILABILITY = {
     "availability": {
-        "topic": f"{MQTT_DEVICE_PREFIX}/{HOSTNAME}/availability",
+        "topic": f"{DEVICE_PREFIX}/{HOSTNAME}/availability",
     }
 }
 
@@ -105,7 +104,7 @@ ATTRIB_MAP = {
         "automation_type": "trigger",
         "type": "action",
         "subtype": "turn_on",
-        "topic": f"{MQTT_DEVICE_PREFIX}/{HOSTNAME}/trigger_action",
+        "topic": f"{DEVICE_PREFIX}/{HOSTNAME}/trigger_action",
     },
     "switch": {
         "topic": "~/state",
@@ -127,15 +126,27 @@ def load_config(_file=CONFIG_FILE):
     """Load configuration from yaml"""
     with open(_file, "r", encoding="utf-8") as conf:
         _config = yaml.safe_load(conf)
-    return _config
+
+    params = {
+        "subscriptions": SUBS,
+        "prefix": {"ha": HA_PREFIX, "device": DEVICE_PREFIX},
+        "sensors": {
+            "prefix": SENSOR_PREFIX_MAP,
+            "type": TYPE_MAP,
+            "attrib": ATTRIB_MAP,
+            "publish": PUBLISH_SENSORS,
+            "availability": DEVICE_AVAILABILITY,
+        },
+    }
+    params.update(_config)
+    params["hostname"] = HOSTNAME
+    params["platform"] = PLATFORM
+    return params
 
 
 #########################################
 class Config:
     """Configuration class"""
-
-    platform = PLATFORM
-    hostname = HOSTNAME
 
     #########################################
     def __init__(self, _dict=None):
@@ -157,6 +168,8 @@ class Config:
     #########################################
     def __getitem__(self, name):
         """Dictionary-like access / updates"""
+        if name not in self.__dict:
+            return None
         value = self.__dict[name]
         if isinstance(value, dict):
             value = Config(value)

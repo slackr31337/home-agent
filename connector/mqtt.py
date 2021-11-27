@@ -24,7 +24,7 @@ MQTT_CONN_CODES = {
 }
 
 #########################################
-class connector(mqtt.Client):
+class Connector(mqtt.Client):
 
     name = "mqtt"
 
@@ -37,7 +37,7 @@ class connector(mqtt.Client):
         **kwargs,
     ):
 
-        super(connector, self).__init__(clientid, **kwargs)
+        super(Connector, self).__init__(clientid, **kwargs)
         self._connected_event = _connected
         self.disconnected = None
         self._connected = False

@@ -8,6 +8,7 @@ plyer; platform_system == 'Windows'
 mss; sys_platform == 'linux' or platform_system == 'Windows'
 wmi; platform_system == 'Windows'
 pyyaml
+hass_client
 requests
 python-dateutil
 paho-mqtt

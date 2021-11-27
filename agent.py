@@ -11,25 +11,11 @@ import json
 
 
 from log import LOGGER
-from ha_sensors import setup_sensor, setup_device
-from config import (
-    MQTT_HA_PREFIX,
-    MQTT_DEVICE_PREFIX,
-    MQTT_SUBS,
-    SENSOR_PREFIX_MAP,
-    TYPE_MAP,
-    ATTRIB_MAP,
-    PUBLISH_SENSORS,
-    DEVICE_AVAILABILITY,
-)
-
 from const import (
     STATE,
     TOPIC,
     PAYLOAD,
-    SENSORS,
-    TYPES,
-    ATTRIBS,
+    SENSOR,
 )
 
 LOG_PREFIX = "[HomeAgent]"
@@ -48,16 +34,11 @@ class HomeAgent:
         self._services = {}
         self.device = {}
         self._last_sensors = {}
-        self._config.sensors = {
-            TYPES: TYPE_MAP,
-            ATTRIBS: ATTRIB_MAP,
-        }
-        # self.identifier = None
         self.sysinfo_class = None
         self.states = None
         self.sensors = sensors
         if self.sensors is None:
-            self.sensors = PUBLISH_SENSORS
+            self.sensors = self._config.sensors.get("publish")
 
         self._os_module()
         self._connector_module()
@@ -105,7 +86,7 @@ class HomeAgent:
 
         _name = pathlib.Path(conn_module).stem
         _module = importlib.import_module(_name)
-        _mod_class = getattr(_module, "connector")
+        _mod_class = getattr(_module, "Connector")
 
         _connected = threading.Event()
         _connected.clear()
@@ -113,21 +94,22 @@ class HomeAgent:
         client_id = f"homeagent_{self._config.hostname}_{int(time.time())}"
         self._connector = _mod_class(self._config, _connected, client_id)
 
-        if self._connector.name == "mqtt":
-            self._connector.message_callback(self.message_receive)
-            for topic in MQTT_SUBS:
-                LOGGER.info("%s Connector subscribe: %s", LOG_PREFIX, topic)
-                self._connector.subscribe_to(topic)
+        self._connector.message_callback(self.message_receive)
+        for topic in self._config.subscriptions:
+            LOGGER.info("%s Connector subscribe: %s", LOG_PREFIX, topic)
+            self._connector.subscribe_to(topic)
 
         self._connector.start()
 
-        if not _connected.wait(30):
+        if not _connected.wait(10):
             LOGGER.error(
                 "%s Connector timeout. Connected: %s",
                 LOG_PREFIX,
                 self._connector.connected(),
             )
-            return
+            raise Exception(
+                "Failed to get connection to Home Assistant. Check auth password or token."
+            )
 
         LOGGER.info(
             "%s Connector is connected: %s", LOG_PREFIX, self._connector.connected()
@@ -155,11 +137,6 @@ class HomeAgent:
 
             _module = importlib.import_module(_name)
             _mod_class = getattr(_module, "agent_module")
-            # if self._config.platform not in _mod_class.platform:
-            #    LOGGER.warning(
-            #        "%s [%s] Module does not support %s", LOG_PREFIX, _name, self._config.platform
-            #    )
-            #    continue
 
             try:
                 _class = _mod_class()
@@ -202,9 +179,9 @@ class HomeAgent:
     def _add_sensor_prefixes(self):
         """Add sensors that match prfixes"""
 
-        for prefix in SENSOR_PREFIX_MAP:
+        for prefix in self._config.sensors.get("prefix", []):
             for sensor in self.states:
-                if prefix in sensor:
+                if sensor and prefix in sensor:
                     self.sensors[sensor] = {}
 
     ###########################################################
@@ -261,21 +238,17 @@ class HomeAgent:
     ###########################################################
     def get_sysinfo(self):
         """Collect system info"""
-
         self.states = self.sysinfo_class.update()
 
     ###########################################################
     def message_send(self, _data):
         """Send message to Home Assistant using connector"""
 
-        # LOGGER.debug("%s message: %s", LOG_PREFIX, _data.get(TOPIC))
-        if self._connector.name == "mqtt":
-            _topic = _data.get(TOPIC)
-            _payload = _data.get(PAYLOAD)
-            if _topic is not None and _payload is not None:
-                self._connector.publish(_topic, _payload)
-        else:
-            LOGGER.error("%s No connection found.", LOG_PREFIX)
+        LOGGER.debug("%s message: %s", LOG_PREFIX, _data.get(TOPIC))
+        _topic = _data.get(TOPIC)
+        _payload = _data.get(PAYLOAD)
+        # if _topic is not None and _payload is not None:
+        self._connector.publish(_topic, _payload)
 
     ###########################################################
     def message_receive(self, _data):
@@ -335,7 +308,7 @@ class HomeAgent:
 
         self.message_send(
             {
-                TOPIC: f"{MQTT_DEVICE_PREFIX}/{self._config.hostname}/availability",
+                TOPIC: f"{self._config.prefix.device}/{self._config.hostname}/availability",
                 PAYLOAD: _state,
             }
         )
@@ -348,14 +321,18 @@ class HomeAgent:
         self.device = setup_device(
             self._config.host.friendly_name, self.states, self._config.identifier
         )
-        _attrib = ATTRIB_MAP.get("device_automation")
+        # LOGGER.debug(self.device)
+        # _attrib = self._config.sensors.attrib.get("device_automation")
 
         _data = setup_sensor(
-            self._config.hostname, "trigger_turn_on", "device_automation", _attrib
+            self._config.hostname,
+            "trigger_turn_on",
+            "device_automation",
+            self._config.sensors.attrib.get("device_automation"),
         )
         _data[PAYLOAD].update(self.device)
-        _data[PAYLOAD].update(DEVICE_AVAILABILITY)
-
+        _data[PAYLOAD].update(self._config.sensors.get("availability"))
+        LOGGER.debug(_data)
         self.message_send(_data)
 
     ###########################################################
@@ -371,7 +348,7 @@ class HomeAgent:
                 "%s Setup service %s for module %s", LOG_PREFIX, _service, _module
             )
             self._services[_service] = getattr(self._modules[_module], _service)
-            topic = f"{MQTT_DEVICE_PREFIX}/{self._config.hostname}/{_service}"
+            topic = f"{self._config.prefix.device}/{self._config.hostname}/{_service}"
             self._connector.subscribe_to(topic)
 
     ###########################################################
@@ -384,11 +361,11 @@ class HomeAgent:
 
         _sensor_types = self._modules[_module].sensor_types
         if _sensor_types:
-            self._config.sensors.types.update(_sensor_types)
+            self._config.sensors.type.update(_sensor_types)
 
         _sensor_attribs = self._modules[_module].sensor_attribs
         if _sensor_attribs:
-            self._config.sensors.attribs.update(_sensor_attribs)
+            self._config.sensors.attrib.update(_sensor_attribs)
 
         _sensors_set = self._modules[_module].sensors_set
         for _sensor in _sensors:
@@ -406,13 +383,13 @@ class HomeAgent:
 
         for sensor in tuple(self.sensors.keys()):
             _name = sensor.title().replace("_", " ")
-            _type = self._config.sensors.types.get(sensor, "sensor")
+            _type = self._config.sensors.type.get(sensor, "sensor")
             LOGGER.debug("%s setup_sensor %s type %s ", LOG_PREFIX, sensor, _type)
 
-            _attribs = self._config.sensors.attribs.get(_type)
+            _attribs = self._config.sensors.attrib.get(_type)
             _data = setup_sensor(self._config.hostname, _name, _type, _attribs)
 
-            _data[PAYLOAD].update(DEVICE_AVAILABILITY)
+            _data[PAYLOAD].update(self._config.sensors.get("availability"))
             device = {"device": {"identifiers": self._config.identifier}}
             _data[PAYLOAD].update(device)
 
@@ -484,7 +461,7 @@ class HomeAgent:
     def _setup_device_tracker(self):
         """Publish device_tracker to MQTT broker"""
 
-        _attribs = self._config.sensors.attribs.get("device_tracker")
+        _attribs = self._config.sensors.attrib.get("device_tracker")
         _data = setup_sensor(
             self._config.hostname, "location", "device_tracker", _attribs
         )
@@ -494,7 +471,7 @@ class HomeAgent:
             f"{self._config.hostname}_location",
         )
 
-        _data[PAYLOAD].update(DEVICE_AVAILABILITY)
+        _data[PAYLOAD].update(self._config.sensors.get("availability"))
         _data[PAYLOAD].update(
             {
                 "device": {"identifiers": self._config.identifier},
@@ -519,7 +496,7 @@ class HomeAgent:
             if self.states["ip_address"].startswith(_net.split("0/", 2)[0]):
                 location = _loc
 
-        _topic = f"{MQTT_HA_PREFIX}/device_tracker/{unique_id}/state"
+        _topic = f"{self._config.prefix.ha}/device_tracker/{unique_id}/state"
         self.message_send({TOPIC: _topic, PAYLOAD: f"{location}"})
 
         payload = {
@@ -540,5 +517,51 @@ class HomeAgent:
             payload["battery_level"] = str(battery_level)
 
         if len(payload) > 0:
-            _topic = f"{MQTT_HA_PREFIX}/device_tracker/{unique_id}/attrib"
+            _topic = f"{self._config.prefix.ha}/device_tracker/{unique_id}/attrib"
             self.message_send({TOPIC: _topic, PAYLOAD: payload})
+
+
+#######################################################
+def setup_device(_name, _sysinfo, _ident):
+
+    _data = {
+        "device": {
+            "name": _name,
+            "identifiers": _ident,
+            "connections": [["mac", _sysinfo.get("mac_address")]],
+            "manufacturer": _sysinfo.get("manufacturer"),
+            "model": _sysinfo.get("model"),
+            "sw_version": _sysinfo.get("platform_release"),
+        },
+    }
+
+    return _data
+
+
+########################################################
+def setup_sensor(_hostname, sensor="Status", sensor_type=SENSOR, attribs=None):
+
+    device_name = _hostname.lower().replace(" ", "_")
+    sensor_name = sensor.lower().replace(" ", "_")
+    unique_id = f"{device_name}_{sensor_name}"
+
+    topic = f"homeassistant/{sensor_type}/{unique_id}"
+    config_topic = f"{topic}/config"
+
+    payload = {
+        "~": topic,
+        "name": unique_id,
+        "unique_id": unique_id,
+        "state_topic": "~/state",
+    }
+
+    sensor = sensor.lower().replace(" ", "_").strip()
+    if attribs is not None:
+        for attrib in attribs:
+            if isinstance(attrib, dict):
+                for item, value in attrib.items():
+                    payload[item] = value
+    return {
+        TOPIC: config_topic,
+        PAYLOAD: payload,
+    }
