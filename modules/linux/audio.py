@@ -5,7 +5,7 @@ dependenicy libportaudio2
 """
 
 ################################################################
-class agent_module:
+class AgentModule:
 
     name = "Portaudio module"
     slug = "portaudio"

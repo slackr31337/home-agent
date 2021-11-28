@@ -9,7 +9,8 @@ from log import LOGGER
 SLUG = "bluetooth"
 LOG_PREFIX = f"[{SLUG}]"
 #########################################
-class agent_module:
+class AgentModule:
+    """Bluetooth scanner"""
 
     name = "Bluetooth module"
     slug = SLUG
@@ -54,7 +55,7 @@ class agent_module:
         LOGGER.debug("%s get: %s", LOG_PREFIX, _method)
         if hasattr(self, _method):
             _func = getattr(self, _method)
-            LOGGER.debug("%s function: %s", LOG_PREFIX, _func.__name__)
+            LOGGER.debug("%s return %s()", LOG_PREFIX, _func.__name__)
             return _func()
 
         _obj = self._set.get(_method)
@@ -97,7 +98,8 @@ class agent_module:
     def detection_callback(self, device, advertisement_data):
         """Store bluetooth advertisement data"""
         addr = str(device.address)
-        _data = {"rssi": device.rssi}
+        distance = pow(10, ((-55 - (device.rssi)) / (10 * 2)))
+        _data = {"rssi": device.rssi, "distance": float(f"{distance:.3f}")}
 
         # if advertisement_data.service_uuids:
         #    _data["uuids"] = advertisement_data.service_uuids
@@ -107,9 +109,8 @@ class agent_module:
 
         self.devices[addr] = _data
         LOGGER.debug(
-            "%s [%s] %s %s",
+            "%s [%s] %s ",
             LOG_PREFIX,
             addr,
-            device.rssi,
-            advertisement_data.local_name,
+            _data,
         )

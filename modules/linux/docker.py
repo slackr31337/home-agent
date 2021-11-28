@@ -1,7 +1,7 @@
 """Class for Docker container sensors on Linux"""
 
 ################################################################
-class agent_module:
+class AgentModule:
 
     name = "Docker module"
     slug = "docker"

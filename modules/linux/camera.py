@@ -5,7 +5,7 @@ import plyer
 from config import TMP_DIR
 
 ################################################################
-class agent_module:
+class AgentModule:
 
     name = "Camera module"
     slug = "camera"

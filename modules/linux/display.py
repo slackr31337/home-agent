@@ -22,7 +22,7 @@ class XScreenSaverInfo(ctypes.Structure):
 
 
 ################################################################
-class agent_module:
+class AgentModule:
 
     name = "X11 display module"
     slug = "display"

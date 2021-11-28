@@ -3,7 +3,7 @@
 import plyer
 
 ################################################################
-class agent_module:
+class AgentModule:
 
     name = "Notify module"
     slug = "notify"

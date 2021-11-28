@@ -138,7 +138,15 @@ class HomeAgent:
             )
 
             _module = importlib.import_module(_name)
-            _mod_class = getattr(_module, "agent_module")
+            if not hasattr(_module, "AgentModule"):
+                LOGGER.error(
+                    "%s Failed to load mmodule %s. AgentModule is missing",
+                    LOG_PREFIX,
+                    _module,
+                )
+                continue
+
+            _mod_class = getattr(_module, "AgentModule")
 
             try:
                 _class = _mod_class()
