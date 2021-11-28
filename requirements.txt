@@ -14,4 +14,5 @@ python-dateutil
 paho-mqtt
 py-cpuinfo
 psutil
-HomeAssistant-API
+bleak
+ipaddress

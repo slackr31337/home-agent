@@ -6,7 +6,8 @@ class agent_module:
     name = "Docker module"
     slug = "docker"
     platform = ["linux"]
-    sensors = {}
+    sensors = []
+    attribs = {}
     services = {}
 
     ###############################################################

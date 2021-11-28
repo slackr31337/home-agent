@@ -10,7 +10,8 @@ class agent_module:
     name = "Camera module"
     slug = "camera"
     platform = ["linux"]
-    sensors = {}
+    sensors = []
+    attribs = {}
     sensors_set = []
     sensor_types = {}
     sensor_attribs = {}

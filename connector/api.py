@@ -27,6 +27,7 @@ class Connector:
         self._connected_event = connected
         self._config = config
         self._client_id = client_id
+
         self._request_id = 0
         self._connected = False
         self._callback = None

@@ -2,29 +2,35 @@
 
 connector: mqtt
 
+# MQTT host, port and auth
 mqtt:
   host: mqtt.local
   port: 1883
   user: "mqtt"
   password: "secret_password"
 
+# Home Assistant host and token
 api:
   host: homeassistant.local
   token: "LongLivedAccessToken"
 
-intervals:
-  metrics: 15
-  events: 60
-  modules: 10
-  ping: 300
+# Scheduler intervals for updating states
+intervals:  
+  metrics: 15   # Send sensor states
+  events: 60    # Check connected and update device
+  modules: 10   # Module sensor state updates
+  ping: 300     # Connector ping check
 
+# Device name in Home Assistant
 host:
   friendly_name: "My Laptop"
 
+# Map location network to key
 device_tracker:
   home: "192.168.1.0/24"
   work: "192.168.2.0/24"
 
+# Map location key to name
 locations:
   home: "home"
   work: "My Work"

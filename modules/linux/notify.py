@@ -8,7 +8,8 @@ class agent_module:
     name = "Notify module"
     slug = "notify"
     platform = ["linux"]
-    sensors = {}
+    sensors = []
+    attribs = {}
     services = {"notify": ["title", "message"]}
 
     ###############################################################

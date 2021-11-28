@@ -22,7 +22,7 @@ MQTT_CONN_CODES = {
     5: "Not authorized",
     6: "Unknown",
 }
-
+LOG_PREFIX = "[MQTT]"
 #########################################
 class Connector(mqtt.Client):
 
@@ -69,11 +69,8 @@ class Connector(mqtt.Client):
         )
         self._mqttc.on_connect = self.mqtt_on_connect
         self._mqttc.on_disconnect = self.mqtt_on_disconnect
-
-        # self._mqttc.on_log = self.mqtt_log
         self._mqttc.on_subscribe = self.mqtt_on_subscribe
         self._mqttc.on_message = self.mqtt_on_message
-        # self._mqttc.on_publish = self.mqtt_on_publish
 
     #########################################
     def mqtt_log(self, mqttc, obj, level, string):
@@ -100,7 +97,7 @@ class Connector(mqtt.Client):
 
     #########################################
     def mqtt_on_message(self, mqttc, obj, msg):
-        # LOGGER.debug("[MQTT] %s payload: %s", msg.topic, msg.payload)
+        LOGGER.debug("[MQTT] %s payload: %s", msg.topic, msg.payload)
         if self._callback is not None:
             payload = str(msg.payload.decode("utf-8"))
             if payload[0] == "}":
@@ -174,13 +171,14 @@ class Connector(mqtt.Client):
         self._mqttc.disconnect()
 
     #########################################
-    def publish(self, topic, payload, qos=1, retain=False):
+    def publish(self, _topic, payload, qos=1, retain=False):
         if not self._connected:
             self.connect()
 
         if isinstance(payload, dict):
             payload = json.dumps(payload, default=str)
-        return self._mqttc.publish(topic, payload=payload, qos=qos, retain=retain)
+        LOGGER.debug("%s publish: %s", LOG_PREFIX, _topic)
+        return self._mqttc.publish(_topic, payload=payload, qos=qos, retain=retain)
 
     #########################################
     def ping(self, topic):

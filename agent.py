@@ -8,6 +8,7 @@ import importlib
 import pathlib
 import glob
 import json
+import ipaddress
 
 
 from log import LOGGER
@@ -36,6 +37,7 @@ class HomeAgent:
         self._last_sensors = {}
         self.sysinfo_class = None
         self.states = None
+        self.attribs = {}
         self.sensors = sensors
         if self.sensors is None:
             self.sensors = self._config.sensors.get("publish")
@@ -156,13 +158,12 @@ class HomeAgent:
         self.start_time = time.time()
         self.get_sysinfo()
         self.get_identifier()
-        self.modules()
         self._publish_device()
+        self.modules()
         self._add_sensor_prefixes()
         self._setup_sensors()
         self._setup_device_tracker()
         self._publish_online()
-        time.sleep(2)
         self.update_sensors(True)
         self.update_device_tracker()
 
@@ -171,6 +172,10 @@ class HomeAgent:
         """Send offline message and stop connector"""
 
         LOGGER.info("%s Stopping", LOG_PREFIX)
+        for module in self._modules:
+            if hasattr(self._modules[module], "stop"):
+                self._modules[module].stop()
+
         self._publish_online("offline")
         self._connector.stop()
         self._ha_connected = False
@@ -222,8 +227,9 @@ class HomeAgent:
             _sensors = self._modules[slug].sensors
             LOGGER.debug("%s module %s sensors %s", LOG_PREFIX, slug, _sensors)
             for _sensor in _sensors:
-                _value = self._modules[slug].get(_sensor)
+                _value, _attrib = self._modules[slug].get(_sensor)
                 self.states[_sensor] = _value
+                self.attribs[_sensor] = _attrib
 
     ###########################################################
     def events(self):
@@ -244,11 +250,11 @@ class HomeAgent:
     def message_send(self, _data):
         """Send message to Home Assistant using connector"""
 
-        LOGGER.debug("%s message: %s", LOG_PREFIX, _data.get(TOPIC))
+        # LOGGER.debug("%s message: %s", LOG_PREFIX, _data.get(TOPIC))
         _topic = _data.get(TOPIC)
         _payload = _data.get(PAYLOAD)
-        # if _topic is not None and _payload is not None:
-        self._connector.publish(_topic, _payload)
+        if _topic is not None and _payload is not None:
+            self._connector.publish(_topic, _payload)
 
     ###########################################################
     def message_receive(self, _data):
@@ -265,10 +271,9 @@ class HomeAgent:
         command = topic[-1]
         payload = _data.get(PAYLOAD)
         LOGGER.info(
-            "%s %s.%s command: %s payload: %s",
+            "%s %s.%s payload: %s",
             LOG_PREFIX,
-            topic[-3],
-            topic[-2],
+            topic,
             command,
             payload,
         )
@@ -321,18 +326,16 @@ class HomeAgent:
         self.device = setup_device(
             self._config.host.friendly_name, self.states, self._config.identifier
         )
-        # LOGGER.debug(self.device)
-        # _attrib = self._config.sensors.attrib.get("device_automation")
 
+        _attrib = self._config.sensors.attrib.get("device_automation")
         _data = setup_sensor(
             self._config.hostname,
             "trigger_turn_on",
             "device_automation",
-            self._config.sensors.attrib.get("device_automation"),
+            _attrib,
         )
         _data[PAYLOAD].update(self.device)
         _data[PAYLOAD].update(self._config.sensors.get("availability"))
-        LOGGER.debug(_data)
         self.message_send(_data)
 
     ###########################################################
@@ -373,6 +376,12 @@ class HomeAgent:
                 "%s Setup sensor %s for module %s", LOG_PREFIX, _sensor, _module
             )
             self.sensors[_sensor] = {}
+
+            _attrib = self._modules[_module].attribs.get(_sensor)
+            if _attrib:
+                self._config.sensors.attrib[_sensor] = _attrib
+                LOGGER.debug("%s %s: %s", LOG_PREFIX, _sensor, _attrib)
+
             if _sensor in _sensors_set and hasattr(self._modules[_module], "set"):
                 LOGGER.info("%s Setup callback %s.set()", LOG_PREFIX, _sensor)
                 self._callback[_sensor] = self._modules[_module].set
@@ -387,6 +396,7 @@ class HomeAgent:
             LOGGER.debug("%s setup_sensor %s type %s ", LOG_PREFIX, sensor, _type)
 
             _attribs = self._config.sensors.attrib.get(_type)
+            # LOGGER.debug("%s sensor attribs: %s", LOG_PREFIX, _attribs)
             _data = setup_sensor(self._config.hostname, _name, _type, _attribs)
 
             _data[PAYLOAD].update(self._config.sensors.get("availability"))
@@ -429,7 +439,7 @@ class HomeAgent:
             if isinstance(_state, list) and len(_state) == 1:
                 _state = next(iter(_state), [])
 
-            elif isinstance(_state, int) and int(_state) not in range(0, 100000):
+            elif isinstance(_state, int) and int(_state) not in range(0, 10000):
                 continue
 
             elif isinstance(_state, bytearray):
@@ -437,9 +447,9 @@ class HomeAgent:
                 self.message_send(_data)
                 continue
 
-            LOGGER.debug(
-                "%s sensor[%s] state: %s %s", LOG_PREFIX, sensor, _state, type(_state)
-            )
+            # LOGGER.debug(
+            #    "%s sensor[%s] state: %s %s", LOG_PREFIX, sensor, _state, type(_state)
+            # )
 
             if _send_nochange or (_last is not None and _state != _last):
                 LOGGER.debug(
@@ -454,6 +464,11 @@ class HomeAgent:
                     _data = {TOPIC: _topic, PAYLOAD: {STATE: _state}}
                     self.message_send(_data)
                     self._last_sensors[sensor] = _state
+
+                _attrib = self.attribs.get(sensor)
+                if _attrib:
+                    _topic = _topic.split("/state", 2)[0] + "/attrib"
+                    self.message_send({TOPIC: _topic, PAYLOAD: _attrib})
 
         LOGGER.debug("%s Done updating sensors", LOG_PREFIX)
 
@@ -492,9 +507,20 @@ class HomeAgent:
         LOGGER.debug("%s Running device_tracker.%s update", LOG_PREFIX, unique_id)
 
         location = "not_home"
-        for _net, _loc in self._config.locations.items():
-            if self.states["ip_address"].startswith(_net.split("0/", 2)[0]):
-                location = _loc
+        for _loc, _net in self._config.device_tracker.items():
+
+            network = ipaddress.ip_network(_net)
+            if network.version != 4:
+                ip = self.states["ip6_address"]
+            else:
+                ip = self.states["ip_address"]
+
+            addr = ipaddress.ip_address(ip)
+            if addr in network:
+                LOGGER.debug(
+                    "%s ip: %s net: %s location: %s", LOG_PREFIX, addr, network, _loc
+                )
+                location = self._config.locations.get(_loc)
 
         _topic = f"{self._config.prefix.ha}/device_tracker/{unique_id}/state"
         self.message_send({TOPIC: _topic, PAYLOAD: f"{location}"})
@@ -557,10 +583,10 @@ def setup_sensor(_hostname, sensor="Status", sensor_type=SENSOR, attribs=None):
 
     sensor = sensor.lower().replace(" ", "_").strip()
     if attribs is not None:
-        for attrib in attribs:
-            if isinstance(attrib, dict):
-                for item, value in attrib.items():
-                    payload[item] = value
+        if isinstance(attribs, dict):
+            for item, value in attribs.items():
+                payload[item] = value
+
     return {
         TOPIC: config_topic,
         PAYLOAD: payload,

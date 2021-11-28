@@ -1,6 +1,7 @@
 """Class to scan for bluetooth devices"""
 
-import bluetooth
+import asyncio
+from bleak import BleakScanner
 
 
 from log import LOGGER
@@ -14,7 +15,6 @@ class agent_module:
     slug = SLUG
     platform = ["linux"]
     services = {}
-    state = {}
     sensors = ["bluetooth"]
     sensors_set = ["disable_scan"]
     sensor_types = {
@@ -29,14 +29,20 @@ class agent_module:
             "command_topic": "~/set",
         },
     }
+    attribs = {
+        "bluetooth": {"unit_of_measurement": "devices"},
+    }
 
     ###############################################################
     def __init__(self):
         self._available = True
         self._disable_scan = False
+        self.devices = {}
         self._set = {
             "disable_scan": self._disable_scan,
         }
+        self.scanner = BleakScanner()
+        self.scanner.register_detection_callback(self.detection_callback)
 
     ###############################################################
     def available(self):
@@ -78,7 +84,32 @@ class agent_module:
     ##############################################################
     def bluetooth(self):
         """Scan for bluetooth devices"""
-        result = None
-        # devices = bluetooth.discover_devices(lookup_names=True, lookup_class=True)
-        # LOGGER.debug(devices)
-        return result
+        asyncio.run(self._scan())
+        return len(self.devices), self.devices
+
+    ###############################################################
+    async def _scan(self):
+        """Async scan for bluetooth devices"""
+        async with self.scanner as scanner:
+            await asyncio.sleep(3)
+
+    ##############################################################
+    def detection_callback(self, device, advertisement_data):
+        """Store bluetooth advertisement data"""
+        addr = str(device.address)
+        _data = {"rssi": device.rssi}
+
+        # if advertisement_data.service_uuids:
+        #    _data["uuids"] = advertisement_data.service_uuids
+
+        if advertisement_data.local_name:
+            _data["name"] = advertisement_data.local_name
+
+        self.devices[addr] = _data
+        LOGGER.debug(
+            "%s [%s] %s %s",
+            LOG_PREFIX,
+            addr,
+            device.rssi,
+            advertisement_data.local_name,
+        )

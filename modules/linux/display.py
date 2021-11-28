@@ -8,7 +8,7 @@ from mss import mss
 from log import LOGGER
 from config import HOSTNAME
 
-LOG_PREFIX = "[x11_display]"
+LOG_PREFIX = "[display]"
 ################################################################
 class XScreenSaverInfo(ctypes.Structure):
     _fields_ = [
@@ -25,10 +25,11 @@ class XScreenSaverInfo(ctypes.Structure):
 class agent_module:
 
     name = "X11 display module"
-    slug = "x11_display"
+    slug = "display"
     platform = ["linux"]
     services = {}
     sensors = ["display_idle", "screen_capture", "disable_capture", "display_locked"]
+    attribs = {}
     sensors_set = ["disable_capture", "display_locked"]
     sensor_types = {
         "display_idle": "binary_sensor",
@@ -127,21 +128,21 @@ class agent_module:
         LOGGER.debug("%s get: %s", LOG_PREFIX, _method)
         if hasattr(self, _method):
             _func = getattr(self, _method)
-            LOGGER.debug("%s function: %s", LOG_PREFIX, _func.__name__)
+            LOGGER.debug("%s module function: %s()", LOG_PREFIX, _func.__name__)
             return _func()
 
         _obj = self._set.get(_method)
         if _obj is not None:
             _value = "ON" if _obj else "OFF"
-            LOGGER.debug("%s sensor %s %s", LOG_PREFIX, _method, _value)
-            return _value
+            LOGGER.debug("%s module sensor %s %s", LOG_PREFIX, _method, _value)
+            return _value, None
 
         LOGGER.error("%s Failed to get %s", LOG_PREFIX, _method)
 
     ###############################################################
     def set(self, _item, _value):
         """Set value for given item. HA switches, etc"""
-        LOGGER.debug("%s set: %s value: %s", LOG_PREFIX, _item, _value)
+        LOGGER.debug("%s moudule set: %s value: %s", LOG_PREFIX, _item, _value)
         if _item in self._set:
             self._set[_item] = bool(_value == "ON")
         return _value
@@ -158,13 +159,14 @@ class agent_module:
             return None
 
         self._idle_seconds = int(self._xss_info_p.contents.idle) / 1000
+        attrib = {"idle": self._idle_seconds, "timeout": self._timeout}
 
         if self._idle_seconds > self._timeout:
             self._display_idle = True
         else:
             self._display_idle = False
 
-        return self._display_idle
+        return self._display_idle, attrib
 
     ##############################################################
     def display_locked(self, _value=None):
@@ -172,7 +174,7 @@ class agent_module:
         if _value is not None:
             self._display_locked = bool(_value == "ON")
 
-        return self._display_locked
+        return self._display_locked, None
 
     ###############################################################
     def screen_capture(self):
@@ -190,4 +192,4 @@ class agent_module:
         with open(filename, "rb") as _image:
             imagestring = _image.read()
 
-        return bytearray(imagestring)
+        return bytearray(imagestring), None

@@ -10,7 +10,8 @@ class agent_module:
     name = "Portaudio module"
     slug = "portaudio"
     platform = ["linux"]
-    sensors = {}
+    sensors = []
+    attribs = {}
     sensors_set = []
     sensor_types = {}
     sensor_attribs = {}
