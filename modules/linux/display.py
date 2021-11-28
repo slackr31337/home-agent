@@ -156,7 +156,7 @@ class AgentModule:
             )
             == 0
         ):
-            return None
+            return None, None
 
         self._idle_seconds = int(self._xss_info_p.contents.idle) / 1000
         attrib = {"idle": self._idle_seconds, "timeout": self._timeout}
@@ -180,7 +180,7 @@ class AgentModule:
     def screen_capture(self):
         """Home Assistant camera with screenshot"""
         if self._display_idle or self._disable_capture:
-            return None
+            return None, None
 
         with mss() as sct:
             filename = sct.shot(
