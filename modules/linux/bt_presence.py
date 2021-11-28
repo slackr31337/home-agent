@@ -85,8 +85,11 @@ class AgentModule:
     ##############################################################
     def bluetooth(self):
         """Scan for bluetooth devices"""
+        attribs = {}
         asyncio.run(self._scan())
-        return len(self.devices), self.devices
+        for ident, values in tuple(self.devices.items()):
+            attribs[ident] = values.get("distance")
+        return len(self.devices), attribs
 
     ###############################################################
     async def _scan(self):
