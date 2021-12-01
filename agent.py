@@ -3,6 +3,7 @@
 import os
 import sys
 import time
+import traceback
 import threading
 import importlib
 import pathlib
@@ -156,7 +157,14 @@ class HomeAgent:
                 self._setup_module_services(_class.slug)
 
             except Exception as err:
+                LOGGER.error(
+                    "###########################################################"
+                )
                 LOGGER.error("%s Failed to load module %s. %s", LOG_PREFIX, _name, err)
+                LOGGER.error(traceback.format_exc())
+                LOGGER.error(
+                    "###########################################################"
+                )
 
     ###########################################################
     def start(self):
@@ -404,13 +412,16 @@ class HomeAgent:
             LOGGER.debug("%s setup_sensor %s type %s ", LOG_PREFIX, sensor, _type)
 
             _attribs = self._config.sensors.attrib.get(_type)
-            # LOGGER.debug("%s sensor attribs: %s", LOG_PREFIX, _attribs)
+            # LOGGER.debug("%s %s attribs: %s", LOG_PREFIX, _type, _attribs)
             _data = setup_sensor(self._config.hostname, _name, _type, _attribs)
 
             _data[PAYLOAD].update(self._config.sensors.get("availability"))
-            device = {"device": {"identifiers": self._config.identifier}}
-            _data[PAYLOAD].update(device)
+            _data[PAYLOAD].update({"device": {"identifiers": self._config.identifier}})
+            _class = self._config.sensors.sensor_class.get(sensor)
+            if isinstance(_class, dict):
+                _data[PAYLOAD].update(_class)
 
+            LOGGER.debug(_data)
             self.message_send(_data)
             time.sleep(0.033)
 

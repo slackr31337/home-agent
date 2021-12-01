@@ -1,7 +1,7 @@
 """Class to scan for bluetooth devices"""
 
-import asyncio
-from bleak import BleakScanner
+import time
+from bleson import get_provider, Observer
 
 
 from log import LOGGER
@@ -42,8 +42,9 @@ class AgentModule:
         self._set = {
             "disable_scan": self._disable_scan,
         }
-        self.scanner = BleakScanner()
-        self.scanner.register_detection_callback(self.detection_callback)
+        adapter = get_provider().get_adapter()
+        self.scanner = Observer(adapter)
+        self.scanner.on_advertising_data = self.detection
 
     ###############################################################
     def available(self):
@@ -85,30 +86,35 @@ class AgentModule:
     ##############################################################
     def bluetooth(self):
         """Scan for bluetooth devices"""
+        if self._disable_scan:
+            return None, None
+
+        self.scanner.start()
+        time.sleep(3)
+        self.scanner.stop()
+
+        now = int(time.time())
+        expire = now - 300
         attribs = {}
-        asyncio.run(self._scan())
         for ident, values in tuple(self.devices.items()):
+            if expire > values["timestamp"]:
+                self.devices.pop(ident, None)
+                continue
             attribs[ident] = values.get("distance")
         return len(self.devices), attribs
 
-    ###############################################################
-    async def _scan(self):
-        """Async scan for bluetooth devices"""
-        async with self.scanner as scanner:
-            await asyncio.sleep(3)
-
     ##############################################################
-    def detection_callback(self, device, advertisement_data):
-        """Store bluetooth advertisement data"""
+    def detection(self, device):
+        """Store bluetooth data"""
+        LOGGER.deubg(device)
+
         addr = str(device.address)
         distance = pow(10, ((-55 - (device.rssi)) / (10 * 2)))
-        _data = {"rssi": device.rssi, "distance": float(f"{distance:.3f}")}
-
-        # if advertisement_data.service_uuids:
-        #    _data["uuids"] = advertisement_data.service_uuids
-
-        if advertisement_data.local_name:
-            _data["name"] = advertisement_data.local_name
+        _data = {
+            "rssi": device.rssi,
+            "distance": float(f"{distance:.3f}"),
+            "timestamp": int(time.time()),
+        }
 
         self.devices[addr] = _data
         LOGGER.debug(

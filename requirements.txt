@@ -14,6 +14,5 @@ python-dateutil
 paho-mqtt
 py-cpuinfo
 psutil
-pybluez
-bleak
+bleson
 ipaddress

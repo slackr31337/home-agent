@@ -22,7 +22,6 @@ MQTT_PASS = os.environ.get("MQTT_PASS", "")
 MQTT_HOST = os.environ.get("MQTT_HOST", "127.0.0.1")
 MQTT_PORT = int(os.environ.get("MQTT_PORT", 1883))
 
-# DEFAULT_CONNECTOR = os.environ.get("DEFAULT_CONNECTOR", "mqtt")
 
 PUBLISH_SENSORS = {
     "ip_address": {},
@@ -61,7 +60,7 @@ TYPE_MAP = {
     "battery_plugged_in": "binary_sensor",
 }
 
-SENSOR_MAP = {
+CLASS_MAP = {
     "load": {
         "state_class": "measurement",
         "unit_of_measurement": "load",
@@ -132,6 +131,7 @@ def load_config(_file=CONFIG_FILE):
         "prefix": {"ha": HA_PREFIX, "device": DEVICE_PREFIX},
         "sensors": {
             "prefix": SENSOR_PREFIX_MAP,
+            "sensor_class": CLASS_MAP,
             "type": TYPE_MAP,
             "attrib": ATTRIB_MAP,
             "publish": PUBLISH_SENSORS,

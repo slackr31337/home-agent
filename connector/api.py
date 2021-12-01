@@ -2,7 +2,6 @@
 
 import json
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
 from hass_client import HomeAssistantClient
 
 
@@ -32,13 +31,8 @@ class Connector:
         self._connected = False
         self._callback = None
         self._ha_version = None
-        self.loop = asyncio.get_event_loop()
-        asyncio.set_event_loop(self.loop)
-        self._client = run_async(
-            self.loop,
-            HomeAssistantClient,
-            f"wss://{self._config.api.host}/api/websocket",
-            self._config.api.token,
+        self._client = HaClient(
+            f"wss://{self._config.api.host}/api/websocket", self._config.api.token
         )
 
         # self.pool = ThreadPoolExecutor()
@@ -48,7 +42,7 @@ class Connector:
         """Start the connector"""
         LOGGER.info("%s API connecting to %s", LOG_PREFIX, self._config.api.host)
 
-        result = run_async(self.loop, self._client.connect())
+        result = self._client.connect()
         LOGGER.debug(result)
 
         # self._ha_version = result.get("ha_version")
@@ -90,6 +84,8 @@ class Connector:
             message = json.dumps(_request)
         else:
             message = ""
+
+        response = ""
 
         LOGGER.debug("ws result: %s", response)
         if not isinstance(response, str) or len(response) == 0:
@@ -173,31 +169,35 @@ class HaClient(HomeAssistantClient):
     def __init__(self, url, token):
         self._url = url
         self._token = token
+        self.loop = asyncio.get_event_loop()
+        asyncio.set_event_loop(self.loop)
+        asyncio.events._set_running_loop(self.loop)
+        # super(HaClient, self).__new__(HomeAssistantClient)
         self._async_init()
 
     def __await__(self):
         return self._async_init().__await__()
 
     async def _async_init(self):
-        self._client = super(HaClient, self).__new__(HomeAssistantClient)
-        await self._client.__init__(self._url, self._token)
-        # self._conn = HomeAssistantClient(self._url, self._token)
-        # self.websocket = await self._conn.__aenter__()
-        # self.client = await HomeAssistantClient(self._url, self._token)
-        # return self
+        # self._client = await HomeAssistantClient(self._url, self._token)
+        # await self._client.__init__(self._url, self._token)
+        # self.websocket = await self._client.__aenter__()
+        return self
 
     async def connect(self):
-        return self._async_connect()
-
-    async def _async_connect(self):
-        await self._client.connect()
-        # self._connected = await self._client.connected()
+        async with HomeAssistantClient(self._url, self._token) as client:
+            client.register_event_callback(log_events)
+            client.connect()
+            await asyncio.sleep(360)
+        await self.websocket.connect()
+        self._connected = await self.websocket.connected()
+        LOGGER.debug("connected=%s", self._connected)
         return self.connected()
 
 
 #########################################
-def run_async(loop, coro, *args):
-    task = asyncio.create_task(coro(*args))
-    loop.run_until_complete(asyncio.wait(task))
-    return task.result()
-    # return result
+def log_events(event: str, event_data: dict) -> None:
+    """Log node value changes."""
+
+    LOGGER.info("Received event: %s", event)
+    LOGGER.debug(event_data)

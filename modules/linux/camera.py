@@ -15,6 +15,7 @@ class AgentModule:
     sensors_set = []
     sensor_types = {}
     sensor_attribs = {}
+    sensor_class = {}
     services = {}
 
     ###############################################################

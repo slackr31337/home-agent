@@ -1,5 +1,6 @@
 """Module for polling display metrics"""
 
+import tempfile
 import ctypes
 import ctypes.util
 from mss import mss
@@ -49,6 +50,7 @@ class AgentModule:
             "command_topic": "~/set",
         },
     }
+    sensor_class = {}
 
     ###############################################################
     def __init__(self, _timeout=300):
@@ -59,6 +61,7 @@ class AgentModule:
         self._available = False
         self._timeout = _timeout
         self._idle_seconds = 0
+        self._temp_file = f"{tempfile.gettempdir()}/{HOSTNAME}_screen_capture.png"
         self._set = {
             "disable_capture": self._disable_capture,
             "display_locked": self._display_locked,
@@ -185,7 +188,7 @@ class AgentModule:
         with mss() as sct:
             filename = sct.shot(
                 mon=-1,
-                output=f"/tmp/{HOSTNAME}_screen_capture.png",
+                output=self._temp_file,
             )
 
         imagestring = None

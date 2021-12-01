@@ -10,6 +10,7 @@ class AgentModule:
     platform = ["linux"]
     sensors = []
     attribs = {}
+    sensor_class = {}
     services = {"notify": ["title", "message"]}
 
     ###############################################################
