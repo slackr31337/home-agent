@@ -1,27 +1,14 @@
 """Configuration constants"""
 
-import os
 import platform
+import tempfile
 import yaml
 
-from agent import LOG_PREFIX
 
 CONFIG_FILE = "config.yaml"
+TMP_DIR = tempfile.tempdir
 HOSTNAME = str(platform.uname().node).lower()
 PLATFORM = str(platform.system()).lower()
-
-INTERVAL_METRICS = 15
-INTERVAL_EVENTS = 300
-INTERVAL_MODULES = 10
-
-API_URL = os.environ.get("API_URL", "http://homeassistant.local")
-API_TOKEN = os.environ.get("API_TOKEN", "Long-Lived Access Token")
-
-MQTT_USER = os.environ.get("MQTT_USER", "")
-MQTT_PASS = os.environ.get("MQTT_PASS", "")
-MQTT_HOST = os.environ.get("MQTT_HOST", "127.0.0.1")
-MQTT_PORT = int(os.environ.get("MQTT_PORT", 1883))
-
 
 PUBLISH_SENSORS = {
     "ip_address": {},
@@ -113,13 +100,6 @@ ATTRIB_MAP = {
     },
 }
 
-
-if PLATFORM == "linux":
-    TMP_DIR = "/tmp"
-
-elif PLATFORM == "windows":
-    TMP_DIR = "c:\windows\temp"
-
 #########################################
 def load_config(_file=CONFIG_FILE):
     """Load configuration from yaml"""
@@ -141,6 +121,7 @@ def load_config(_file=CONFIG_FILE):
     params.update(_config)
     params["hostname"] = HOSTNAME
     params["platform"] = PLATFORM
+    params["temp_dir"] = TMP_DIR
     return params
 
 
