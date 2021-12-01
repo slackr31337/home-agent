@@ -61,18 +61,18 @@ class HomeAgent:
         )
         if not os.path.exists(f"{mod_dir}/{self._config.platform}.py"):
             LOGGER.error(
-                "%s OS module [%s] missing from %s",
+                "%s OS module [%s] not found in %s",
                 LOG_PREFIX,
                 self._config.platform,
                 mod_dir,
             )
-            raise "OS module missing"
+            raise Exception("OS module not found")
 
         os_module = os.path.join(mod_dir, f"{self._config.platform}.py")
 
         _name = pathlib.Path(os_module).stem
         _module = importlib.import_module(_name)
-        _mod_class = getattr(_module, "agent_platform")
+        _mod_class = getattr(_module, "AgentPlatform")
         self.sysinfo_class = _mod_class()
 
     ###########################################################
@@ -141,7 +141,7 @@ class HomeAgent:
             _module = importlib.import_module(_name)
             if not hasattr(_module, "AgentModule"):
                 LOGGER.error(
-                    "%s Failed to load mmodule %s. AgentModule is missing",
+                    "%s Failed to load module %s. AgentModule class not found",
                     LOG_PREFIX,
                     _module,
                 )
@@ -541,7 +541,7 @@ class HomeAgent:
                 )
                 location = self._config.locations.get(_loc)
 
-        _topic = f"{self._config.prefix.ha}/device_tracker/{unique_id}/state"
+        _topic = f"{self._config.prefix.discover}/device_tracker/{unique_id}/state"
         self.message_send({TOPIC: _topic, PAYLOAD: f"{location}"})
 
         payload = {
@@ -562,7 +562,7 @@ class HomeAgent:
             payload["battery_level"] = str(battery_level)
 
         if len(payload) > 0:
-            _topic = f"{self._config.prefix.ha}/device_tracker/{unique_id}/attrib"
+            _topic = f"{self._config.prefix.discover}/device_tracker/{unique_id}/attrib"
             self.message_send({TOPIC: _topic, PAYLOAD: payload})
 
 

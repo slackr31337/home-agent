@@ -15,7 +15,7 @@ from log import LOGGER
 
 LOG_PREFIX = "[Linux]"
 ########################################################
-class agent_platform:
+class AgentPlatform:
 
     platform = "linux"
     os = "Linux"

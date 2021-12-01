@@ -13,7 +13,7 @@ from util import get_boot
 
 LOG_PREFIX = "[Linux]"
 ########################################################
-class agent_platform:
+class AgentPlatform:
     _svc_name_ = "HomeAgent"
     _svc_display_name_ = "Home Agent for Home Assistant"
     _svc_description_ = "PC sensors and notifications"

@@ -11,10 +11,12 @@ sudo apt install -y dmidecode
 sudo apt install -y libglib2.0-dev python3-dbus python3-gi python3-gi-cairo
 
 # Needed for bluetooth sensors
-sudo apt install -y rfkill bluez bluez-firmware bluez-hcidump bluez-tools
+#sudo apt install -y rfkill bluez bluez-firmware bluez-hcidump bluez-tools
+sudo apt-get install bluetooth bluez libbluetooth-dev libudev-dev
 
 echo "Adding homeagent user"
 sudo adduser --system --home ${DIR} --no-create-home --disabled-login homeagent
+sudo usermod -aG bluetooth homeagent
 
 ${PY} -V
 echo "Creating virtualenv in ${DIR}"

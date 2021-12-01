@@ -28,7 +28,7 @@ PUBLISH_SENSORS = {
     "battery_plugged_in": {},
 }
 
-HA_PREFIX = "homeassistant"
+DISCOVER_PREFIX = "homeassistant"
 DEVICE_PREFIX = "devices"
 TOPICS = ["command", "event"]
 
@@ -108,7 +108,7 @@ def load_config(_file=CONFIG_FILE):
 
     params = {
         "subscriptions": SUBS,
-        "prefix": {"ha": HA_PREFIX, "device": DEVICE_PREFIX},
+        "prefix": {"discover": DISCOVER_PREFIX, "device": DEVICE_PREFIX},
         "sensors": {
             "prefix": SENSOR_PREFIX_MAP,
             "sensor_class": CLASS_MAP,

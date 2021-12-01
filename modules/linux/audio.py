@@ -8,7 +8,7 @@ dependenicy libportaudio2
 class AgentModule:
 
     name = "Portaudio module"
-    slug = "portaudio"
+    slug = "audio"
     platform = ["linux"]
     sensors = []
     attribs = {}
