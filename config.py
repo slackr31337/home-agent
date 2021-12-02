@@ -26,6 +26,7 @@ PUBLISH_SENSORS = {
     "memory_percent": {},
     "battery_percent": {},
     "battery_plugged_in": {},
+    "users": {},
 }
 
 DISCOVER_PREFIX = "homeassistant"

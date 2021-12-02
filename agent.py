@@ -409,8 +409,11 @@ class HomeAgent:
         for sensor in tuple(self.sensors.keys()):
             _name = sensor.title().replace("_", " ")
             _type = self._config.sensors.type.get(sensor, "sensor")
-            LOGGER.debug("%s setup_sensor %s type %s ", LOG_PREFIX, sensor, _type)
-
+            _state = self.states.get(sensor)
+            LOGGER.debug("%s setup_sensor %s type %s state %s", LOG_PREFIX, sensor, _type, _state)
+            if _state is None:
+                continue
+            
             _attribs = self._config.sensors.attrib.get(_type)
             # LOGGER.debug("%s %s attribs: %s", LOG_PREFIX, _type, _attribs)
             _data = setup_sensor(self._config.hostname, _name, _type, _attribs)
@@ -421,7 +424,7 @@ class HomeAgent:
             if isinstance(_class, dict):
                 _data[PAYLOAD].update(_class)
 
-            LOGGER.debug(_data)
+            #LOGGER.debug(_data)
             self.message_send(_data)
             time.sleep(0.033)
 
