@@ -38,7 +38,7 @@ class AgentPlatform:
 
     ########################################################
     def update(self):
-        return self._update_system_info()
+        self._update_system_info()
 
     ########################################################
     def _get_system_info(self):
@@ -73,6 +73,7 @@ class AgentPlatform:
             "processor_threads": psutil.cpu_count(),
         }
         LOGGER.debug(self._sysinfo)
+        self._sensors.update(self._sysinfo.copy())
 
     ########################################################
     def _update_system_info(self):
@@ -80,9 +81,13 @@ class AgentPlatform:
 
         memory_usage = psutil.virtual_memory()
         logins = psutil.users()
-        users = []
+        users = 0
+        attribs = {}
         for user in logins:
-            users.append(user[0])
+            users += 1
+            attribs[user[0]] = user[2]
+
+        self._attribs["users"] = attribs
 
         _data = {
             "users": users,
@@ -191,8 +196,8 @@ class AgentPlatform:
             _data["battery_percent"] = int(battery.percent)
             _data["battery_plugged_in"] = battery.power_plugged
 
-        self._sysinfo.update(_data)
-        return self._sysinfo
+        self._sensors.update(_data)
+        #return self._sensors, self._attribs
 
     ########################################################
 

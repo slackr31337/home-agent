@@ -30,7 +30,8 @@ PUBLISH_SENSORS = {
 }
 
 PUBLISH_SENSOR_PREFIX = [
-    "network_",
+    "network_enp",
+    "network_eth",
     "k10temp_",
     "w83795g_temp",
     "w83795g_fan",
@@ -73,6 +74,7 @@ CLASS_MAP = {
         "state_class": "measurement",
         "unit_of_measurement": "%",
     },
+    "users": {"state_class": "measurement","unit_of_measurement": "users"},
     "battery_plugged_in": {"device_class": "plug"},
     "processor_percent": {"state_class": "measurement", "unit_of_measurement": "%"},
     "memory_percent": {"state_class": "measurement", "unit_of_measurement": "%"},

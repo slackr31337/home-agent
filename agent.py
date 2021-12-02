@@ -36,7 +36,7 @@ class HomeAgent:
         self._services = {}
         self.device = {}
         self._last_sensors = {}
-        self.sysinfo_class = None
+        self.platform_class = None
         self.states = None
         self.attribs = {}
         self.sensors = sensors
@@ -73,7 +73,7 @@ class HomeAgent:
         _name = pathlib.Path(os_module).stem
         _module = importlib.import_module(_name)
         _mod_class = getattr(_module, "AgentPlatform")
-        self.sysinfo_class = _mod_class()
+        self.platform_class = _mod_class()
 
     ###########################################################
     def _connector_module(self):
@@ -260,7 +260,10 @@ class HomeAgent:
     ###########################################################
     def get_sysinfo(self):
         """Collect system info"""
-        self.states = self.sysinfo_class.update()
+        self.platform_class.update()
+        states, attribs = self.platform_class.state()
+        self.states.update(states)
+        self.attribs.update(attribs)
 
     ###########################################################
     def message_send(self, _data):
@@ -413,7 +416,7 @@ class HomeAgent:
             LOGGER.debug("%s setup_sensor %s type %s state %s", LOG_PREFIX, sensor, _type, _state)
             if _state is None:
                 continue
-            
+
             _attribs = self._config.sensors.attrib.get(_type)
             # LOGGER.debug("%s %s attribs: %s", LOG_PREFIX, _type, _attribs)
             _data = setup_sensor(self._config.hostname, _name, _type, _attribs)
