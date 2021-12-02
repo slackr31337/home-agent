@@ -199,11 +199,16 @@ class HomeAgent:
     ###########################################################
     def _add_sensor_prefixes(self):
         """Add sensors that match prfixes"""
-
+        #prefixes = self._config.sensors.get("prefix", [])
+        #sensors = tuple(self.states.keys())
         for prefix in self._config.sensors.get("prefix", []):
             for sensor in self.states:
                 if sensor and prefix in sensor:
                     self.sensors[sensor] = {}
+                    for prefix2, _class in self._config.sensors.prefix_class.items():
+                        if prefix2 in sensor:
+                            self._config.sensors.sensor_class[sensor] = _class
+                    
 
     ###########################################################
     def conn_ping(self):

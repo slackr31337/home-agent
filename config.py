@@ -57,8 +57,9 @@ TYPE_MAP = {
     "battery_plugged_in": "binary_sensor",
 }
 
-SENSOR_PREFIX_MAP = {
+PREFIX_CLASS_MAP = {
     "disk_": {"state_class": "measurement", "unit_of_measurement": "%"},
+    "network_": {},
     "k10temp_": {"state_class": "measurement", "unit_of_measurement": "C"},
     "w83795g_temp": {"state_class": "measurement", "unit_of_measurement": "C"},
     "w83795g_fan": {"state_class": "measurement", "unit_of_measurement": "RPM"},
@@ -123,7 +124,8 @@ def load_config(_file=CONFIG_FILE):
         "subscriptions": SUBS,
         "prefix": {"discover": DISCOVER_PREFIX, "device": DEVICE_PREFIX},
         "sensors": {
-            "prefix": SENSOR_PREFIX_MAP,
+            "prefix": PUBLISH_SENSOR_PREFIX,
+            "prefix_class": PREFIX_CLASS_MAP,
             "sensor_class": CLASS_MAP,
             "type": TYPE_MAP,
             "attrib": ATTRIB_MAP,
