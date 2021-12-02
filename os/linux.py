@@ -108,7 +108,7 @@ class AgentPlatform:
         }
 
         self._attribs["processor_percent"] = {
-            "frequency": psutil.cpu_freq()[0],
+            "frequency": f"{int(psutil.cpu_freq()[0])} Mhz"
         }
 
         self._attribs["memory_percent"] = {
@@ -134,12 +134,6 @@ class AgentPlatform:
                 "received": bytes2human(nic_io.bytes_recv),
                 "sent": bytes2human(nic_io.bytes_sent),
             }
-            #_data[f"network_{iface}_speed"] = stats.speed
-            #_data[f"network_{iface}_mtu"] = stats.mtu
-            #_data[f"network_{iface}_rx"] = bytes2human(nic_io.bytes_recv)
-            #_data[f"network_{iface}_tx"] = bytes2human(nic_io.bytes_sent)
-            #_data[f"network_{iface}_drops"] = nic_io.dropin
-            #_data[f"network_{iface}_errors"] = nic_io.errin
 
             for addr in addrs:
                 LOGGER.debug(
