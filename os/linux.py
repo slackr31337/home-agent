@@ -81,8 +81,9 @@ class AgentPlatform:
         _data = {
             "users": psutil.users(),
             "ip_address": None,
-            "ip4_address": [],
-            "ip6_address": [],
+            "ip4_addresses": [],
+            "ip6_address": None,
+            "ip6_addresses": [],
             "mac_address": None,
             "mac_addresses": [],
             "processor_percent": float(psutil.cpu_percent()),
@@ -118,16 +119,16 @@ class AgentPlatform:
                 )
                 _addr = str(addr.address)
                 if addr.family == socket.AF_INET:
-                    _data["ip4_address"].append(_addr)
+                    _data["ip4_addresses"].append(_addr)
 
                 elif addr.family == socket.AF_INET6 and not _addr.startswith("fe80::"):
-                    _data["ip6_address"].append(_addr)
+                    _data["ip6_addresses"].append(_addr)
 
                 elif addr.family == socket.AF_PACKET:
                     _data[f"network_{iface}_mac"] = _addr
                     _data["mac_addresses"].append(_addr)
 
-        _data["ip_address"] = next(iter(_data["ip4_address"]), "")
+        _data["ip_address"] = next(iter(_data["ip4_addresses"]),"")
         _data["mac_address"] = next(iter(_data["mac_addresses"]), "")
 
         load1, load5, load15 = os.getloadavg()
@@ -180,7 +181,7 @@ class AgentPlatform:
                 count += 1
 
         battery = psutil.sensors_battery()
-        if battery:
+        if battery and battery.power_plugged is not None:
             _data["battery_percent"] = int(battery.percent)
             _data["battery_plugged_in"] = battery.power_plugged
 
