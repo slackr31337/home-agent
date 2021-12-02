@@ -27,12 +27,14 @@ class AgentPlatform:
         self._uname = platform.uname()
         self._cpuinfo = get_cpu_info()
         self._sysinfo = {}
+        self._sensors = {}
+        self._attribs = {}
         self._get_system_info()
 
     ########################################################
     def state(self):
         """Return sysinfo dict"""
-        return self._sysinfo
+        return self._sensors, self._attribs
 
     ########################################################
     def update(self):
@@ -77,9 +79,13 @@ class AgentPlatform:
         """Build system information and return dict"""
 
         memory_usage = psutil.virtual_memory()
+        logins = psutil.users()
+        users = []
+        for user in logins:
+            users.append(user[0])
 
         _data = {
-            "users": psutil.users(),
+            "users": users,
             "ip_address": None,
             "ip4_addresses": [],
             "ip6_address": None,

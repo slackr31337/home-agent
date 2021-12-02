@@ -29,6 +29,13 @@ PUBLISH_SENSORS = {
     "users": {},
 }
 
+PUBLISH_SENSOR_PREFIX = [
+    "network_",
+    "k10temp_",
+    "w83795g_temp",
+    "w83795g_fan",
+]
+
 DISCOVER_PREFIX = "homeassistant"
 DEVICE_PREFIX = "devices"
 TOPICS = ["command", "event"]
@@ -48,6 +55,13 @@ TYPE_MAP = {
     "battery_plugged_in": "binary_sensor",
 }
 
+SENSOR_PREFIX_MAP = {
+    "network_": {},
+    "k10temp_": {"state_class": "measurement", "unit_of_measurement": "C"},
+    "w83795g_temp": {"state_class": "measurement", "unit_of_measurement": "C"},
+    "w83795g_fan": {"state_class": "measurement", "unit_of_measurement": "RPM"},
+}
+
 CLASS_MAP = {
     "load": {
         "state_class": "measurement",
@@ -64,11 +78,6 @@ CLASS_MAP = {
     "memory_percent": {"state_class": "measurement", "unit_of_measurement": "%"},
 }
 
-SENSOR_PREFIX_MAP = {
-    "k10temp_": {"state_class": "measurement", "unit_of_measurement": "C"},
-    "w83795g_temp": {"state_class": "measurement", "unit_of_measurement": "C"},
-    "w83795g_fan": {"state_class": "measurement", "unit_of_measurement": "RPM"},
-}
 
 ATTRIB_MAP = {
     "sensor": {
