@@ -57,6 +57,7 @@ TYPE_MAP = {
 }
 
 SENSOR_PREFIX_MAP = {
+    "disk_": {"state_class": "measurement", "unit_of_measurement": "%"},
     "k10temp_": {"state_class": "measurement", "unit_of_measurement": "C"},
     "w83795g_temp": {"state_class": "measurement", "unit_of_measurement": "C"},
     "w83795g_fan": {"state_class": "measurement", "unit_of_measurement": "RPM"},

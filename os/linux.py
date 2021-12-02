@@ -145,29 +145,31 @@ class AgentPlatform:
 
         load1, load5, load15 = os.getloadavg()
         _data["load"] = load1
-        _data["load5"] = load5
-        _data["load15"] = load15
-        _data["disk"] = []
+        self._attribs["load"] = {"load5": load5, "load15": load15}
+
+        #_data["disk"] = []
         for disk in psutil.disk_partitions():
+            
             disk_usage = psutil.disk_usage(disk.mountpoint)
             if "live" in disk.mountpoint:
                 continue
-            disk_info = {
+            dev = str(disk.device).split("/")[-1]
+            key = f"disk_{dev}"
+            _data[key] = int(disk_usage.percent)
+            self._attribs[key] = {
                 "mount": disk.mountpoint,
                 "total": bytes2human(disk_usage.total),
                 "used": bytes2human(disk_usage.used),
-                "percent": int(disk_usage.percent),
             }
-            _data["disk"].append(disk_info)
 
         disk_usage = psutil.disk_usage("/")
-        disk_info = {
+        _data["disk_root"] = int(disk_usage.percent)
+        self._attribs["disk_root"] = {
             "mount": "/",
             "total": bytes2human(disk_usage.total),
             "used": bytes2human(disk_usage.used),
-            "percent": int(disk_usage.percent),
         }
-        _data["disk"].append(disk_info)
+
 
         sensors = psutil.sensors_temperatures()
         for _type, sensors in sensors.items():
