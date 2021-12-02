@@ -30,6 +30,7 @@ PUBLISH_SENSORS = {
 }
 
 PUBLISH_SENSOR_PREFIX = [
+    "disk_",
     "network_enp",
     "network_eth",
     "k10temp_",
