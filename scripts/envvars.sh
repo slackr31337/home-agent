@@ -1,7 +1,4 @@
 #!/bin/bash
-MQTT_HOST=ha.rd3s.com
-MQTT_PORT=8883
-
 HOMEAGENT=/opt/home-agent
 VIRTUAL_ENV=${HOMEAGENT}/env
 PYTHON_HOME=${VIRTUAL_ENV}
