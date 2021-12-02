@@ -140,6 +140,7 @@ class AgentPlatform:
                     _data["mac_addresses"].append(_addr)
 
         _data["ip_address"] = next(iter(_data["ip4_addresses"]),"")
+        _data["ip6_address"] = next(iter(_data["ip6_addresses"]),"")
         _data["mac_address"] = next(iter(_data["mac_addresses"]), "")
 
         load1, load5, load15 = os.getloadavg()
@@ -197,7 +198,6 @@ class AgentPlatform:
             _data["battery_plugged_in"] = battery.power_plugged
 
         self._sensors.update(_data)
-        #return self._sensors, self._attribs
 
     ########################################################
 
