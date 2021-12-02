@@ -107,6 +107,15 @@ class AgentPlatform:
             "memory_percent": float(memory_usage.percent),
         }
 
+        self._attribs["processor_percent"] = {
+            "frequency": psutil.cpu_freq()[0],
+        }
+
+        self._attribs["memory_percent"] = {
+            "total": bytes2human(memory_usage.total),
+            "used": bytes2human(memory_usage.used)
+            } 
+
         nics = psutil.net_if_addrs()
         nic_stats = psutil.net_if_stats()
         io_counters = psutil.net_io_counters(pernic=True)
@@ -115,13 +124,22 @@ class AgentPlatform:
                 continue
             stats = nic_stats[iface]
             nic_io = io_counters[iface]
-            _data[f"network_{iface}_up"] = stats.isup
-            _data[f"network_{iface}_speed"] = stats.speed
-            _data[f"network_{iface}_mtu"] = stats.mtu
-            _data[f"network_{iface}_rx"] = bytes2human(nic_io.bytes_recv)
-            _data[f"network_{iface}_tx"] = bytes2human(nic_io.bytes_sent)
-            _data[f"network_{iface}_drops"] = nic_io.dropin
-            _data[f"network_{iface}_errors"] = nic_io.errin
+            key = f"network_{iface}"
+            _data[key] = "Up" if stats.isup else "Down"
+            self._attribs[key] = {
+                "speed": stats.speed,
+                "mtu": stats.mtu,
+                "drops": nic_io.dropin,
+                "errors": nic_io.errin,
+                "received": bytes2human(nic_io.bytes_recv),
+                "sent": bytes2human(nic_io.bytes_sent),
+            }
+            #_data[f"network_{iface}_speed"] = stats.speed
+            #_data[f"network_{iface}_mtu"] = stats.mtu
+            #_data[f"network_{iface}_rx"] = bytes2human(nic_io.bytes_recv)
+            #_data[f"network_{iface}_tx"] = bytes2human(nic_io.bytes_sent)
+            #_data[f"network_{iface}_drops"] = nic_io.dropin
+            #_data[f"network_{iface}_errors"] = nic_io.errin
 
             for addr in addrs:
                 LOGGER.debug(
@@ -134,13 +152,16 @@ class AgentPlatform:
                 _addr = str(addr.address)
                 if addr.family == socket.AF_INET:
                     _data["ip4_addresses"].append(_addr)
+                    self._attribs[key]["ipv4"] = _addr
 
                 elif addr.family == socket.AF_INET6 and not _addr.startswith("fe80::"):
                     _data["ip6_addresses"].append(_addr)
+                    self._attribs[key]["ipv6"] = _addr
 
                 elif addr.family == socket.AF_PACKET:
-                    _data[f"network_{iface}_mac"] = _addr
+                    #_data[f"network_{iface}_mac"] = _addr
                     _data["mac_addresses"].append(_addr)
+                    self._attribs[key]["mac"] = _addr
 
         _data["ip_address"] = next(iter(_data["ip4_addresses"]),"")
         _data["ip6_address"] = next(iter(_data["ip6_addresses"]),"")
