@@ -37,7 +37,7 @@ class HomeAgent:
         self.device = {}
         self._last_sensors = {}
         self.platform_class = None
-        self.states = None
+        self.states = {}
         self.attribs = {}
         self.sensors = sensors
         if self.sensors is None:
