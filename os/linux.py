@@ -85,8 +85,10 @@ class AgentPlatform:
         attribs = {}
         for user in logins:
             users += 1
-            key = f"{user.name}_{user.terminal}"
-            attribs[key] = user.host
+            host = user.host
+            if len(host) == 0:
+                host = "localhost"
+            attribs[user.terminal] = f"{user.name}@{host}"
 
         self._attribs["users"] = attribs
 
