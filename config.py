@@ -33,6 +33,8 @@ PUBLISH_SENSOR_PREFIX = [
     "disk_",
     "network_enp",
     "network_eth",
+    "temp",
+    "coretemp",
     "k10temp_",
     "w83795g_temp",
     "w83795g_fan",
@@ -57,11 +59,16 @@ TYPE_MAP = {
     "battery_plugged_in": "binary_sensor",
 }
 
+CLASS_TEMP = {"state_class": "measurement", "unit_of_measurement": "C"}
+CLASS_PERCENT = {"state_class": "measurement", "unit_of_measurement": "%"}
+
 PREFIX_CLASS_MAP = {
-    "disk_": {"state_class": "measurement", "unit_of_measurement": "%"},
+    "disk_": CLASS_PERCENT,
     "network_": {},
-    "k10temp_": {"state_class": "measurement", "unit_of_measurement": "C"},
-    "w83795g_temp": {"state_class": "measurement", "unit_of_measurement": "C"},
+    "temp": CLASS_TEMP,
+    "coretemp": CLASS_TEMP,
+    "k10temp_": CLASS_TEMP,
+    "w83795g_temp": CLASS_TEMP,
     "w83795g_fan": {"state_class": "measurement", "unit_of_measurement": "RPM"},
 }
 
@@ -76,10 +83,10 @@ CLASS_MAP = {
         "state_class": "measurement",
         "unit_of_measurement": "%",
     },
-    "users": {"state_class": "measurement","unit_of_measurement": "users"},
+    "users": {"state_class": "measurement", "unit_of_measurement": "users"},
     "battery_plugged_in": {"device_class": "plug"},
-    "processor_percent": {"state_class": "measurement", "unit_of_measurement": "%"},
-    "memory_percent": {"state_class": "measurement", "unit_of_measurement": "%"},
+    "processor_percent": CLASS_PERCENT,
+    "memory_percent": CLASS_PERCENT,
 }
 
 

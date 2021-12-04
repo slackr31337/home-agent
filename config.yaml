@@ -11,7 +11,7 @@ mqtt:
 
 # Home Assistant host and token
 api:
-  host: homeassistant.local
+  host: homeassistant.local or host.ui.nabu.casa
   token: "LongLivedAccessToken"
 
 # Scheduler intervals for updating states

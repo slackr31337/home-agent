@@ -13,6 +13,7 @@ from dmidecode import DMIDecode
 
 from log import LOGGER
 
+SKIP_MOUNTS = ["live", "docker"]
 LOG_PREFIX = "[Linux]"
 ########################################################
 class AgentPlatform:
@@ -113,8 +114,8 @@ class AgentPlatform:
 
         self._attribs["memory_percent"] = {
             "total": bytes2human(memory_usage.total),
-            "used": bytes2human(memory_usage.used)
-            } 
+            "used": bytes2human(memory_usage.used),
+        }
 
         nics = psutil.net_if_addrs()
         nic_stats = psutil.net_if_stats()
@@ -153,21 +154,20 @@ class AgentPlatform:
                     self._attribs[key]["ipv6"] = _addr
 
                 elif addr.family == socket.AF_PACKET:
-                    #_data[f"network_{iface}_mac"] = _addr
+                    # _data[f"network_{iface}_mac"] = _addr
                     _data["mac_addresses"].append(_addr)
                     self._attribs[key]["mac"] = _addr
 
-        _data["ip_address"] = next(iter(_data["ip4_addresses"]),"")
-        _data["ip6_address"] = next(iter(_data["ip6_addresses"]),"")
+        _data["ip_address"] = next(iter(_data["ip4_addresses"]), "")
+        _data["ip6_address"] = next(iter(_data["ip6_addresses"]), "")
         _data["mac_address"] = next(iter(_data["mac_addresses"]), "")
 
         load1, load5, load15 = os.getloadavg()
         _data["load"] = load1
         self._attribs["load"] = {"load5": load5, "load15": load15}
 
-
         for disk in psutil.disk_partitions():
-            if "live" in disk.mountpoint:
+            if any(item in disk.mountpoint for item in SKIP_MOUNTS):
                 continue
             dev = str(disk.device).split("/")[-1]
             key = f"disk_{dev}"

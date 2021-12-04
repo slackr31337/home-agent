@@ -36,6 +36,7 @@ deactivate
 echo "Adding homeagent user"
 sudo adduser --system --home ${DIR} --no-create-home --disabled-login homeagent
 sudo usermod -aG bluetooth homeagent
+sudo usermod -aG sudo homeagent
 
-chown homeagent:homeagent /opt/home-agent
+chown homeagent /opt/home-agent
 
