@@ -13,7 +13,7 @@ from dmidecode import DMIDecode
 
 from log import LOGGER
 
-SKIP_MOUNTS = ["live", "docker"]
+SKIP_MOUNTS = ["live", "docker", "subvol"]
 LOG_PREFIX = "[Linux]"
 ########################################################
 class AgentPlatform:
@@ -167,7 +167,7 @@ class AgentPlatform:
         self._attribs["load"] = {"load5": load5, "load15": load15}
 
         for disk in psutil.disk_partitions():
-            if any(item in disk.mountpoint for item in SKIP_MOUNTS):
+            if any(item in str(disk.mountpoint) for item in SKIP_MOUNTS):
                 continue
             dev = str(disk.device).split("/")[-1]
             key = f"disk_{dev}"
