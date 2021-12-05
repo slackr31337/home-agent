@@ -18,7 +18,7 @@ api:
 intervals:  
   metrics: 15   # Send sensor states
   events: 60    # Check connected and update device
-  modules: 10   # Module sensor state updates
+  modules: 30   # Module sensor state updates
   ping: 300     # Connector ping check
 
 # Device name in Home Assistant

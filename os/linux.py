@@ -123,12 +123,15 @@ class AgentPlatform:
         for iface, addrs in nics.items():
             if "lo" in iface:
                 continue
-            if "." in iface:
-                iface = iface.replace(".", "_")
+
             stats = nic_stats[iface]
             nic_io = io_counters[iface]
+            if "." in iface:
+                iface = iface.replace(".", "_")
+
             key = f"network_{iface}"
             _data[key] = "Up" if stats.isup else "Down"
+
             self._attribs[key] = {
                 "speed": stats.speed,
                 "mtu": stats.mtu,
