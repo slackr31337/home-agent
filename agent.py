@@ -34,11 +34,12 @@ class HomeAgent:
         self._modules = {}
         self._callback = {}
         self._services = {}
-        self.device = {}
         self._last_sensors = {}
         self.platform_class = None
+        self.device = {}
         self.states = {}
         self.attribs = {}
+        self.icons = {}
         self.sensors = sensors
         if self.sensors is None:
             self.sensors = self._config.sensors.get("publish")
@@ -199,8 +200,8 @@ class HomeAgent:
     ###########################################################
     def _add_sensor_prefixes(self):
         """Add sensors that match prfixes"""
-        #prefixes = self._config.sensors.get("prefix", [])
-        #sensors = tuple(self.states.keys())
+        # prefixes = self._config.sensors.get("prefix", [])
+        # sensors = tuple(self.states.keys())
         for prefix in self._config.sensors.get("prefix", []):
             for sensor in self.states:
                 if sensor and prefix in sensor:
@@ -208,7 +209,6 @@ class HomeAgent:
                     for prefix2, _class in self._config.sensors.prefix_class.items():
                         if prefix2 in sensor:
                             self._config.sensors.sensor_class[sensor] = _class
-                    
 
     ###########################################################
     def conn_ping(self):
@@ -294,7 +294,7 @@ class HomeAgent:
         topic = _data.get(TOPIC, "").split("/")
         command = topic[-1]
         payload = _data.get(PAYLOAD)
-        LOGGER.info(
+        LOGGER.debug(
             "%s %s.%s payload: %s",
             LOG_PREFIX,
             topic,
@@ -323,7 +323,7 @@ class HomeAgent:
                 self.update_sensors(True, [sensor])
 
         elif command in self._services:
-            LOGGER.debug("%s calling service %s", LOG_PREFIX, command)
+            LOGGER.info("%s cmd calling service %s()", LOG_PREFIX, command)
             try:
                 self._services[command](json.loads(payload))
             except json.JSONDecodeError as err:
@@ -351,15 +351,14 @@ class HomeAgent:
             self._config.host.friendly_name, self.states, self._config.identifier
         )
 
-        _attrib = self._config.sensors.attrib.get("device_automation")
+        # _attrib = self._config.sensors.attrib.get("device_automation")
         _data = setup_sensor(
-            self._config.hostname,
+            self._config,
             "trigger_turn_on",
             "device_automation",
-            _attrib,
         )
         _data[PAYLOAD].update(self.device)
-        _data[PAYLOAD].update(self._config.sensors.get("availability"))
+        # _data[PAYLOAD].update(self._config.sensors.get("availability"))
         self.message_send(_data)
 
     ###########################################################
@@ -394,6 +393,10 @@ class HomeAgent:
         if _sensor_attribs:
             self._config.sensors.attrib.update(_sensor_attribs)
 
+        _sensor_icons = self._modules[_module].sensor_icons
+        if _sensor_icons:
+            self._config.sensors.icons.update(_sensor_icons)
+
         _sensors_set = self._modules[_module].sensors_set
         for _sensor in _sensors:
             LOGGER.info(
@@ -416,23 +419,25 @@ class HomeAgent:
 
         for sensor in tuple(self.sensors.keys()):
             _name = sensor.title().replace("_", " ")
-            _type = self._config.sensors.type.get(sensor, "sensor")
+            # _type = self._config.sensors.type.get(sensor, "sensor")
             _state = self.states.get(sensor)
-            LOGGER.debug("%s setup_sensor %s type %s state %s", LOG_PREFIX, sensor, _type, _state)
             if _state is None:
                 continue
 
-            _attribs = self._config.sensors.attrib.get(_type)
-            # LOGGER.debug("%s %s attribs: %s", LOG_PREFIX, _type, _attribs)
-            _data = setup_sensor(self._config.hostname, _name, _type, _attribs)
+            # _attribs = self._config.sensors.attrib.get(_type)
+            _data = setup_sensor(self._config, _name)
 
-            _data[PAYLOAD].update(self._config.sensors.get("availability"))
-            _data[PAYLOAD].update({"device": {"identifiers": self._config.identifier}})
-            _class = self._config.sensors.sensor_class.get(sensor)
-            if isinstance(_class, dict):
-                _data[PAYLOAD].update(_class)
+            # _data[PAYLOAD].update(self._config.sensors.get("availability"))
+            # _data[PAYLOAD].update({"device": {"identifiers": self._config.identifier}})
+            # _class = self._config.sensors.sensor_class.get(sensor)
+            # if isinstance(_class, dict):
+            #    _data[PAYLOAD].update(_class)
 
-            #LOGGER.debug(_data)
+            # _icon = self._config.sensors.icons.get(sensor)
+            # if _icon:
+            #    _data[PAYLOAD].update({"icon": f"mdi:{_icon}"})
+
+            # LOGGER.debug(_data)
             self.message_send(_data)
             time.sleep(0.033)
 
@@ -506,20 +511,18 @@ class HomeAgent:
     def _setup_device_tracker(self):
         """Publish device_tracker to MQTT broker"""
 
-        _attribs = self._config.sensors.attrib.get("device_tracker")
-        _data = setup_sensor(
-            self._config.hostname, "location", "device_tracker", _attribs
-        )
+        # _attribs = self._config.sensors.attrib.get("device_tracker")
+        _data = setup_sensor(self._config, "location", "device_tracker")
         LOGGER.debug(
             "%s Setup device_tracker %s",
             LOG_PREFIX,
             f"{self._config.hostname}_location",
         )
 
-        _data[PAYLOAD].update(self._config.sensors.get("availability"))
+        # _data[PAYLOAD].update(self._config.sensors.get("availability"))
         _data[PAYLOAD].update(
             {
-                "device": {"identifiers": self._config.identifier},
+                # "device": {"identifiers": self._config.identifier},
                 "name": f"{self._config.hostname}_location",
                 "source_type": "router",
             }
@@ -595,11 +598,22 @@ def setup_device(_name, _sysinfo, _ident):
 
 
 ########################################################
-def setup_sensor(_hostname, sensor="Status", sensor_type=SENSOR, attribs=None):
+def setup_sensor(_config, sensor="Status", sensor_type=None, attribs=None):
 
-    device_name = _hostname.lower().replace(" ", "_")
+    device_name = _config.hostname.lower().replace(" ", "_")
     sensor_name = sensor.lower().replace(" ", "_")
     unique_id = f"{device_name}_{sensor_name}"
+
+    if not sensor_type:
+        sensor_type = _config.sensors.type.get(sensor_name, SENSOR)
+
+    LOGGER.debug(
+        "%s setup_sensor[%s] (%s) type %s",
+        LOG_PREFIX,
+        sensor_name,
+        sensor,
+        sensor_type,
+    )
 
     topic = f"homeassistant/{sensor_type}/{unique_id}"
     config_topic = f"{topic}/config"
@@ -609,13 +623,24 @@ def setup_sensor(_hostname, sensor="Status", sensor_type=SENSOR, attribs=None):
         "name": unique_id,
         "unique_id": unique_id,
         "state_topic": "~/state",
+        "device": {"identifiers": _config.identifier},
     }
 
-    sensor = sensor.lower().replace(" ", "_").strip()
+    # sensor = sensor.lower().replace(" ", "_").strip()
+
+    attribs = _config.sensors.attrib.get(sensor_type)
     if attribs is not None:
         if isinstance(attribs, dict):
             for item, value in attribs.items():
                 payload[item] = value
+
+    _class = _config.sensors.sensor_class.get(sensor_name)
+    if isinstance(_class, dict):
+        payload.update(_class)
+
+    _icon = _config.sensors.icons.get(sensor_name)
+    if _icon:
+        payload.update({"icon": f"mdi:{_icon}"})
 
     return {
         TOPIC: config_topic,

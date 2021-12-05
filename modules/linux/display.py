@@ -51,25 +51,23 @@ class AgentModule:
         },
     }
     sensor_class = {}
-    icons = {
+    sensor_icons = {
         "display_idle": "monitor",
         "disable_capture": "monitor-eye",
         "display_locked": "monitor-lock",
     }
 
     ###############################################################
-    def __init__(self, _timeout=300):
+    def __init__(self, timeout=300):
         LOGGER.debug("%s init module", LOG_PREFIX)
-        self._display_idle = None
-        self._disable_capture = False
-        self._display_locked = False
         self._available = False
-        self._timeout = _timeout
-        self._idle_seconds = 0
         self._temp_file = f"{tempfile.gettempdir()}/{HOSTNAME}_screen_capture.png"
-        self._set = {
-            "disable_capture": self._disable_capture,
-            "display_locked": self._display_locked,
+        self._state = {
+            "idle_seconds": 0,
+            "timeout": timeout,
+            "display_idle": False,
+            "disable_capture": False,
+            "display_locked": False,
         }
         self._setup()
 
@@ -139,20 +137,16 @@ class AgentModule:
             LOGGER.debug("%s module function: %s()", LOG_PREFIX, _func.__name__)
             return _func()
 
-        _obj = self._set.get(_method)
-        if _obj is not None:
-            _value = "ON" if _obj else "OFF"
-            LOGGER.debug("%s module sensor %s %s", LOG_PREFIX, _method, _value)
-            return _value, None
-
-        LOGGER.error("%s Failed to get %s", LOG_PREFIX, _method)
+        _value = self._state.get(_method)
+        LOGGER.debug("%s module sensor %s %s", LOG_PREFIX, _method, _value)
+        return _value, None
 
     ###############################################################
     def set(self, _item, _value):
         """Set value for given item. HA switches, etc"""
-        LOGGER.debug("%s moudule set: %s value: %s", LOG_PREFIX, _item, _value)
-        if _item in self._set:
-            self._set[_item] = bool(_value == "ON")
+        LOGGER.debug("%s set: %s value: %s", LOG_PREFIX, _item, _value)
+        if _item in self._state:
+            self._state[_item] = bool(_value == "ON")
         return _value
 
     ###############################################################
@@ -166,31 +160,29 @@ class AgentModule:
         ):
             return None, None
 
-        self._idle_seconds = int(self._xss_info_p.contents.idle) / 1000
-        attrib = {"idle": self._idle_seconds, "timeout": self._timeout}
+        self._state["idle_seconds"] = int(self._xss_info_p.contents.idle) / 1000
 
-        if self._idle_seconds > self._timeout:
-            self._display_idle = True
+        if self._state["idle_seconds"] > self._state["timeout"]:
+            self._state["display_idle"] = True
         else:
-            self._display_idle = False
+            self._state["display_idle"] = False
 
-        return self._display_idle, attrib
-
-    ##############################################################
-    def display_locked(self, _value=None):
-        """Home Assistant switch"""
-        if _value is not None:
-            self._display_locked = bool(_value == "ON")
-
-        return self._display_locked, None
+        return self._state["display_idle"], {
+            "idle": self._state["idle_seconds"],
+            "timeout": self._state["timeout"],
+        }
 
     ###############################################################
     def screen_capture(self):
         """Home Assistant camera with screenshot"""
-        if self._display_idle or self._disable_capture:
+        if self._state["display_idle"] or self._state["disable_capture"]:
+            LOGGER.debug("%s capture_disabled", LOG_PREFIX)
             return None, None
 
         with mss() as sct:
+            LOGGER.debug(
+                "%s writing screen shot to file %s", LOG_PREFIX, self._temp_file
+            )
             filename = sct.shot(
                 mon=-1,
                 output=self._temp_file,
