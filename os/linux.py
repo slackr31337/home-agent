@@ -123,6 +123,8 @@ class AgentPlatform:
         for iface, addrs in nics.items():
             if "lo" in iface:
                 continue
+            if "." in iface:
+                iface = iface.replace(".", "_")
             stats = nic_stats[iface]
             nic_io = io_counters[iface]
             key = f"network_{iface}"

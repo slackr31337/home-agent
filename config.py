@@ -10,6 +10,14 @@ TMP_DIR = tempfile.tempdir
 HOSTNAME = str(platform.uname().node).lower()
 PLATFORM = str(platform.system()).lower()
 
+DISCOVER_PREFIX = "homeassistant"
+DEVICE_PREFIX = "devices"
+TOPICS = ["command", "event"]
+
+SUBS = [f"{DISCOVER_PREFIX}/event"]
+for topic in TOPICS:
+    SUBS.append(f"{DEVICE_PREFIX}/{HOSTNAME}/{topic}")
+
 PUBLISH_SENSORS = {
     "ip_address": {},
     "ip6_address": {},
@@ -39,14 +47,6 @@ PUBLISH_SENSOR_PREFIX = [
     "w83795g_temp",
     "w83795g_fan",
 ]
-
-DISCOVER_PREFIX = "homeassistant"
-DEVICE_PREFIX = "devices"
-TOPICS = ["command", "event"]
-
-SUBS = ["homeassistant/event"]
-for topic in TOPICS:
-    SUBS.append(f"{DEVICE_PREFIX}/{HOSTNAME}/{topic}")
 
 DEVICE_AVAILABILITY = {
     "availability": {
@@ -121,6 +121,17 @@ ATTRIB_MAP = {
     },
 }
 
+ICON_MAP = {
+    "ip_address": "ip-network",
+    "ip6_address": "ip-network",
+    "processor_percent": "cpu-64-bit",
+    "memory_percent": "chip",
+    "users": "account",
+}
+ICON_PREFIX_MAP = {
+    "network": "network",
+}
+
 #########################################
 def load_config(_file=CONFIG_FILE):
     """Load configuration from yaml"""
@@ -138,6 +149,8 @@ def load_config(_file=CONFIG_FILE):
             "attrib": ATTRIB_MAP,
             "publish": PUBLISH_SENSORS,
             "availability": DEVICE_AVAILABILITY,
+            "icons": ICON_MAP,
+            "icons_prefix": ICON_PREFIX_MAP,
         },
     }
     params.update(_config)

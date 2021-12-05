@@ -51,6 +51,11 @@ class AgentModule:
         },
     }
     sensor_class = {}
+    icons = {
+        "display_idle": "monitor",
+        "disable_capture": "monitor-eye",
+        "display_locked": "monitor-lock",
+    }
 
     ###############################################################
     def __init__(self, _timeout=300):
