@@ -18,6 +18,12 @@ SUBS = [f"{DISCOVER_PREFIX}/event"]
 for topic in TOPICS:
     SUBS.append(f"{DEVICE_PREFIX}/{HOSTNAME}/{topic}")
 
+DEVICE_AVAILABILITY = {
+    "availability": {
+        "topic": f"{DEVICE_PREFIX}/{HOSTNAME}/availability",
+    }
+}
+
 PUBLISH_SENSORS = {
     "ip_address": {},
     "ip6_address": {},
@@ -48,19 +54,25 @@ PUBLISH_SENSOR_PREFIX = [
     "w83795g_fan",
 ]
 
-DEVICE_AVAILABILITY = {
-    "availability": {
-        "topic": f"{DEVICE_PREFIX}/{HOSTNAME}/availability",
-    }
+ICON_MAP = {
+    "ip_address": "ip-network",
+    "ip6_address": "ip-network",
+    "processor_percent": "cpu-64-bit",
+    "memory_percent": "chip",
+    "users": "account",
 }
 
-TYPE_MAP = {
-    "device_automation": "device_automation",
-    "battery_plugged_in": "binary_sensor",
+ICON_PREFIX_MAP = {
+    "disk_": "harddisk",
+    "network_": "network",
+    "temp": "thermometer-lines",
+    "coretemp": "thermometer-lines",
+    "fan": "fan",
 }
 
 CLASS_TEMP = {"state_class": "measurement", "unit_of_measurement": "C"}
 CLASS_PERCENT = {"state_class": "measurement", "unit_of_measurement": "%"}
+CLASS_RPM = {"state_class": "measurement", "unit_of_measurement": "RPM"}
 
 PREFIX_CLASS_MAP = {
     "disk_": CLASS_PERCENT,
@@ -69,7 +81,7 @@ PREFIX_CLASS_MAP = {
     "coretemp": CLASS_TEMP,
     "k10temp_": CLASS_TEMP,
     "w83795g_temp": CLASS_TEMP,
-    "w83795g_fan": {"state_class": "measurement", "unit_of_measurement": "RPM"},
+    "w83795g_fan": CLASS_RPM,
 }
 
 CLASS_MAP = {
@@ -88,7 +100,6 @@ CLASS_MAP = {
     "processor_percent": CLASS_PERCENT,
     "memory_percent": CLASS_PERCENT,
 }
-
 
 ATTRIB_MAP = {
     "sensor": {
@@ -121,15 +132,9 @@ ATTRIB_MAP = {
     },
 }
 
-ICON_MAP = {
-    "ip_address": "ip-network",
-    "ip6_address": "ip-network",
-    "processor_percent": "cpu-64-bit",
-    "memory_percent": "chip",
-    "users": "account",
-}
-ICON_PREFIX_MAP = {
-    "network": "network",
+TYPE_MAP = {
+    "device_automation": "device_automation",
+    "battery_plugged_in": "binary_sensor",
 }
 
 #########################################
@@ -150,7 +155,7 @@ def load_config(_file=CONFIG_FILE):
             "publish": PUBLISH_SENSORS,
             "availability": DEVICE_AVAILABILITY,
             "icons": ICON_MAP,
-            "icons_prefix": ICON_PREFIX_MAP,
+            "prefix_icons": ICON_PREFIX_MAP,
         },
     }
     params.update(_config)
@@ -172,6 +177,10 @@ class Config:
     def get(self, name, default=None):
         """Dictionary get method"""
         return self.__dict.get(name, default)
+
+    #########################################
+    def keys(self):
+        return self.__dict.keys()
 
     #########################################
     def items(self):

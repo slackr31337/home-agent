@@ -200,15 +200,42 @@ class HomeAgent:
     ###########################################################
     def _add_sensor_prefixes(self):
         """Add sensors that match prfixes"""
-        # prefixes = self._config.sensors.get("prefix", [])
-        # sensors = tuple(self.states.keys())
-        for prefix in self._config.sensors.get("prefix", []):
-            for sensor in self.states:
-                if sensor and prefix in sensor:
-                    self.sensors[sensor] = {}
-                    for prefix2, _class in self._config.sensors.prefix_class.items():
-                        if prefix2 in sensor:
-                            self._config.sensors.sensor_class[sensor] = _class
+        prefix_sensors = self._config.sensors.get("prefix", [])
+        prefix_class = tuple(self._config.sensors.prefix_class.keys())
+        prefix_icon = tuple(self._config.sensors.prefix_icons.keys())
+        sensors = tuple(self.states.keys())
+        for sensor in sensors:
+            item = [prefix for prefix in prefix_sensors if prefix in sensor]
+            if not item:
+                continue
+            # Add sensor to metrics
+            self.sensors[sensor] = {}
+
+            # Add sensor device class data
+            item = [prefix for prefix in prefix_class if prefix in sensor]
+            if item:
+                LOGGER.debug(
+                    "%s prefix_class: %s for sensor: %s", LOG_PREFIX, item, sensor
+                )
+                value = self._config.sensors.prefix_class.get(item[0])
+                self._config.sensors.sensor_class[sensor] = value
+
+            # Add sensor icon data
+            item = [prefix for prefix in prefix_icon if prefix in sensor]
+            if item:
+                LOGGER.debug(
+                    "%s prefix_icon: %s for sensor: %s", LOG_PREFIX, item, sensor
+                )
+                value = self._config.sensors.prefix_icons.get(item[0])
+                self._config.sensors.icons[sensor] = value
+
+        # for prefix in self._config.sensors.get("prefix", []):
+        #    for sensor in self.states:
+        #        if sensor and prefix in sensor:
+        #            self.sensors[sensor] = {}
+        #            for prefix2, _class in self._config.sensors.prefix_class.items():
+        #                if prefix2 in sensor:
+        #                    self._config.sensors.sensor_class[sensor] = _class
 
     ###########################################################
     def conn_ping(self):
@@ -347,18 +374,13 @@ class HomeAgent:
         """Publish device config"""
 
         LOGGER.debug("%s publish_device %s", LOG_PREFIX, self._config.hostname)
-        self.device = setup_device(
-            self._config.host.friendly_name, self.states, self._config.identifier
-        )
-
-        # _attrib = self._config.sensors.attrib.get("device_automation")
+        self.device = setup_device(self._config, self.states)
         _data = setup_sensor(
             self._config,
             "trigger_turn_on",
             "device_automation",
         )
         _data[PAYLOAD].update(self.device)
-        # _data[PAYLOAD].update(self._config.sensors.get("availability"))
         self.message_send(_data)
 
     ###########################################################
@@ -418,25 +440,12 @@ class HomeAgent:
         """Publish sensor config to MQTT broker"""
 
         for sensor in tuple(self.sensors.keys()):
-            _name = sensor.title().replace("_", " ")
-            # _type = self._config.sensors.type.get(sensor, "sensor")
             _state = self.states.get(sensor)
             if _state is None:
                 continue
 
-            # _attribs = self._config.sensors.attrib.get(_type)
+            _name = sensor.title().replace("_", " ")
             _data = setup_sensor(self._config, _name)
-
-            # _data[PAYLOAD].update(self._config.sensors.get("availability"))
-            # _data[PAYLOAD].update({"device": {"identifiers": self._config.identifier}})
-            # _class = self._config.sensors.sensor_class.get(sensor)
-            # if isinstance(_class, dict):
-            #    _data[PAYLOAD].update(_class)
-
-            # _icon = self._config.sensors.icons.get(sensor)
-            # if _icon:
-            #    _data[PAYLOAD].update({"icon": f"mdi:{_icon}"})
-
             # LOGGER.debug(_data)
             self.message_send(_data)
             time.sleep(0.033)
@@ -511,7 +520,6 @@ class HomeAgent:
     def _setup_device_tracker(self):
         """Publish device_tracker to MQTT broker"""
 
-        # _attribs = self._config.sensors.attrib.get("device_tracker")
         _data = setup_sensor(self._config, "location", "device_tracker")
         LOGGER.debug(
             "%s Setup device_tracker %s",
@@ -519,10 +527,8 @@ class HomeAgent:
             f"{self._config.hostname}_location",
         )
 
-        # _data[PAYLOAD].update(self._config.sensors.get("availability"))
         _data[PAYLOAD].update(
             {
-                # "device": {"identifiers": self._config.identifier},
                 "name": f"{self._config.hostname}_location",
                 "source_type": "router",
             }
@@ -581,12 +587,13 @@ class HomeAgent:
 
 
 #######################################################
-def setup_device(_name, _sysinfo, _ident):
+def setup_device(_config, _sysinfo):
+    """Return dict with device data"""
 
     _data = {
         "device": {
-            "name": _name,
-            "identifiers": _ident,
+            "name": _config.host.friendly_name,
+            "identifiers": _config.identifer,
             "connections": [["mac", _sysinfo.get("mac_address")]],
             "manufacturer": _sysinfo.get("manufacturer"),
             "model": _sysinfo.get("model"),
@@ -599,7 +606,7 @@ def setup_device(_name, _sysinfo, _ident):
 
 ########################################################
 def setup_sensor(_config, sensor="Status", sensor_type=None, attribs=None):
-
+    """Return dict with sensor config"""
     device_name = _config.hostname.lower().replace(" ", "_")
     sensor_name = sensor.lower().replace(" ", "_")
     unique_id = f"{device_name}_{sensor_name}"
@@ -625,8 +632,6 @@ def setup_sensor(_config, sensor="Status", sensor_type=None, attribs=None):
         "state_topic": "~/state",
         "device": {"identifiers": _config.identifier},
     }
-
-    # sensor = sensor.lower().replace(" ", "_").strip()
 
     attribs = _config.sensors.attrib.get(sensor_type)
     if attribs is not None:
