@@ -181,8 +181,10 @@ class HomeAgent:
         self._setup_sensors()
         self._setup_device_tracker()
         self._publish_online()
-        self.update_sensors(True)
-        self.update_device_tracker()
+
+        if self._ha_connected:
+            self.update_sensors(True)
+            self.update_device_tracker()
 
     ###########################################################
     def stop(self):
@@ -208,7 +210,7 @@ class HomeAgent:
             item = [prefix for prefix in prefix_sensors if prefix in sensor]
             if not item:
                 continue
-            # Add sensor to metrics
+            # Add sensor to metrics collection
             self.sensors[sensor] = {}
 
             # Add sensor device class data
@@ -228,14 +230,6 @@ class HomeAgent:
                 )
                 value = self._config.sensors.prefix_icons.get(item[0])
                 self._config.sensors.icons[sensor] = value
-
-        # for prefix in self._config.sensors.get("prefix", []):
-        #    for sensor in self.states:
-        #        if sensor and prefix in sensor:
-        #            self.sensors[sensor] = {}
-        #            for prefix2, _class in self._config.sensors.prefix_class.items():
-        #                if prefix2 in sensor:
-        #                    self._config.sensors.sensor_class[sensor] = _class
 
     ###########################################################
     def conn_ping(self):
@@ -292,6 +286,7 @@ class HomeAgent:
     ###########################################################
     def get_sysinfo(self):
         """Collect system info"""
+
         self.platform_class.update()
         states, attribs = self.platform_class.state()
         self.states.update(states)
@@ -446,7 +441,6 @@ class HomeAgent:
 
             _name = sensor.title().replace("_", " ")
             _data = setup_sensor(self._config, _name)
-            # LOGGER.debug(_data)
             self.message_send(_data)
             time.sleep(0.033)
 
@@ -590,7 +584,7 @@ class HomeAgent:
 def setup_device(_config, _sysinfo):
     """Return dict with device data"""
 
-    _data = {
+    return {
         "device": {
             "name": _config.host.friendly_name,
             "identifiers": _config.identifer,
@@ -600,8 +594,6 @@ def setup_device(_config, _sysinfo):
             "sw_version": _sysinfo.get("platform_release"),
         },
     }
-
-    return _data
 
 
 ########################################################

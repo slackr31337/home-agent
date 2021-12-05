@@ -57,15 +57,17 @@ PUBLISH_SENSOR_PREFIX = [
 ICON_MAP = {
     "ip_address": "ip-network",
     "ip6_address": "ip-network",
+    "load": "format-line-weight",
     "processor_percent": "cpu-64-bit",
     "memory_percent": "chip",
     "users": "account",
 }
 
 ICON_PREFIX_MAP = {
+    "memory_": "chip",
     "disk_": "harddisk",
     "network_": "network",
-    "temp": "thermometer-lines",
+    "temp_": "thermometer-lines",
     "coretemp": "thermometer-lines",
     "fan": "fan",
 }
@@ -77,7 +79,7 @@ CLASS_RPM = {"state_class": "measurement", "unit_of_measurement": "RPM"}
 PREFIX_CLASS_MAP = {
     "disk_": CLASS_PERCENT,
     "network_": {},
-    "temp": CLASS_TEMP,
+    "temp_": CLASS_TEMP,
     "coretemp": CLASS_TEMP,
     "k10temp_": CLASS_TEMP,
     "w83795g_temp": CLASS_TEMP,
