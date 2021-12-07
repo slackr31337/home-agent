@@ -245,7 +245,7 @@ class HomeAgent:
         while _id is None and len(_items) > 0:
             _key = _items.pop(0)
             _id = self.states.get(_key)
-            if "Serial" in _id:
+            if "Serial" in _id or "O.E.M." in _id:
                 _id = None
 
         LOGGER.info("%s Device identifier: %s", LOG_PREFIX, _id)
