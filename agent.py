@@ -267,14 +267,11 @@ class HomeAgent:
     ###########################################################
     def get_connections(self):
         """Get connection identifiers for this device"""
-        _conn = []
+
+        _conn = [["ip_address", self.states.get("ip_address")]]
         for _value in self.states.get("mac_addresses"):
             if _value:
                 _conn.append(["mac", _value])
-
-        for _value in self.states.get("ip4_addresses"):
-            if _value:
-                _conn.append(["ip_address", _value])
 
         self._config.device.connections = _conn
         LOGGER.info("%s Device connections: %s", LOG_PREFIX, _conn)
