@@ -163,7 +163,7 @@ class HomeAgent:
                     "###########################################################"
                 )
                 LOGGER.error("%s Failed to load module %s. %s", LOG_PREFIX, _name, err)
-                LOGGER.error(traceback.format_exc())
+                LOGGER.debug(traceback.format_exc())
                 LOGGER.error(
                     "###########################################################"
                 )
