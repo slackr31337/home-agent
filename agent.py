@@ -187,6 +187,7 @@ class HomeAgent:
         if self._ha_connected:
             self.update_sensors(True)
             self.update_device_tracker()
+            self._publish_online()
 
     ###########################################################
     def stop(self):
@@ -441,10 +442,14 @@ class HomeAgent:
             ONLINE_ATTRIB,
         )
         _data[PAYLOAD].update(self.device)
-        _data[PAYLOAD]["~"] = self._config.device.topic
-        _data[PAYLOAD]["state_topic"] = f"{self._config.device.topic}/status"
+        _data[PAYLOAD].update(
+            {
+                "~": self._config.device.topic,
+                "state_topic": self._config.device.availability,
+            }
+        )
+
         self.message_send(_data)
-        LOGGER.debug("%s device: %s", LOG_PREFIX, _data)
 
         _data[PAYLOAD]["name"] = "Online"
         self.message_send(_data)
@@ -513,13 +518,18 @@ class HomeAgent:
 
             _name = sensor.title().replace("_", " ")
             _data = setup_sensor(self._config, _name)
-            self.message_send(_data)
-            time.sleep(0.033)
 
-            _data[PAYLOAD].update({"name": _name})
+            self._message_event.clear()
+            self.message_send(_data)
+            self._message_event.wait(1)
+
+            _data[PAYLOAD].update(
+                {"name": _name, "availability_topic": self._config.device.availability}
+            )
             self.message_send(_data)
 
             _data[TOPIC] = _data[TOPIC].split("/config", 2)[0] + "/state"
+
             self.sensors[sensor] = _data
 
             if sensor in self._callback:
@@ -597,6 +607,7 @@ class HomeAgent:
             {
                 "name": f"{self._config.hostname}_location",
                 "source_type": "router",
+                "availability_topic": self._config.device.availability,
             }
         )
         self.message_send(_data)

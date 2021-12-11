@@ -19,11 +19,6 @@ TOPICS = ["command", "event"]
 
 DEVICE_TOPIC = f"{DEVICE_PREFIX}/{HOSTNAME}"
 DEVICE_STATUS = f"{DEVICE_TOPIC}/status"
-DEVICE_AVAILABILITY = {
-    "availability": {
-        "topic": DEVICE_STATUS,
-    }
-}
 
 SUBS = [f"{DISCOVER_PREFIX}/event"]
 for topic in TOPICS:
@@ -169,7 +164,12 @@ def load_config(_file=CONFIG_FILE):
         "app_name": APP_NAME,
         "app_ver": f"{APP_NAME} {__version__}",
         "dir": os.path.dirname(__file__),
-        "device": {"identifiers": None, "connections": None, "topic": DEVICE_TOPIC},
+        "device": {
+            "topic": DEVICE_TOPIC,
+            "availability": DEVICE_STATUS,
+            "identifiers": None,
+            "connections": None,
+        },
         "subscriptions": SUBS,
         "prefix": {"discover": DISCOVER_PREFIX, "device": DEVICE_PREFIX},
         "sensors": {
@@ -179,7 +179,6 @@ def load_config(_file=CONFIG_FILE):
             "type": TYPE_MAP,
             "attrib": ATTRIB_MAP,
             "publish": PUBLISH_SENSORS,
-            "availability": DEVICE_AVAILABILITY,
             "icons": ICON_MAP,
             "prefix_icons": ICON_PREFIX_MAP,
         },
