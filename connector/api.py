@@ -5,8 +5,8 @@ import asyncio
 from hass_client import HomeAssistantClient
 
 
-from _version import __version__
-from log import LOGGER
+from utilities.version import __version__
+from utilities.log import LOGGER
 from const import TOPIC, PAYLOAD
 
 

@@ -12,8 +12,10 @@ import json
 import ipaddress
 
 
-from log import LOGGER
+from utilities.log import LOGGER
+from config import ONLINE_ATTRIB
 from const import (
+    ATTRIBS,
     STATE,
     TOPIC,
     PAYLOAD,
@@ -28,6 +30,7 @@ class HomeAgent:
     ###########################################################
     def __init__(self, config, sensors=None):
         """Init class"""
+        self._message_event = threading.Event()
         self._config = config
         self._connector = None
         self._ha_connected = False
@@ -92,11 +95,9 @@ class HomeAgent:
         _module = importlib.import_module(_name)
         _mod_class = getattr(_module, "Connector")
 
-        _connected = threading.Event()
-        _connected.clear()
-
+        self._message_event.clear()
         client_id = f"homeagent_{self._config.hostname}_{int(time.time())}"
-        self._connector = _mod_class(self._config, _connected, client_id)
+        self._connector = _mod_class(self._config, self._message_event, client_id)
 
         self._connector.message_callback(self.message_receive)
         for topic in self._config.subscriptions:
@@ -105,7 +106,7 @@ class HomeAgent:
 
         self._connector.start()
 
-        if not _connected.wait(10):
+        if not self._message_event.wait(15):
             LOGGER.error(
                 "%s Connector timeout. Connected: %s",
                 LOG_PREFIX,
@@ -174,13 +175,14 @@ class HomeAgent:
         LOGGER.debug("%s Running startup tasks", LOG_PREFIX)
         self.start_time = time.time()
         self.get_sysinfo()
-        self.get_identifier()
+        self.get_identifiers()
+        self.get_connections()
         self._publish_device()
         self.modules()
         self._add_sensor_prefixes()
         self._setup_sensors()
         self._setup_device_tracker()
-        self._publish_online()
+        self._load_state()
 
         if self._ha_connected:
             self.update_sensors(True)
@@ -195,7 +197,10 @@ class HomeAgent:
             if hasattr(self._modules[module], "stop"):
                 self._modules[module].stop()
 
+        self._message_event.clear()
         self._publish_online("offline")
+
+        self._message_event.wait(5)
         self._connector.stop()
         self._ha_connected = False
 
@@ -205,22 +210,28 @@ class HomeAgent:
         prefix_sensors = self._config.sensors.get("prefix", [])
         prefix_class = tuple(self._config.sensors.prefix_class.keys())
         prefix_icon = tuple(self._config.sensors.prefix_icons.keys())
+
         sensors = tuple(self.states.keys())
         for sensor in sensors:
             item = [prefix for prefix in prefix_sensors if prefix in sensor]
             if not item:
                 continue
+
             # Add sensor to metrics collection
             self.sensors[sensor] = {}
 
             # Add sensor device class data
             item = [prefix for prefix in prefix_class if prefix in sensor]
             if item:
-                LOGGER.debug(
-                    "%s prefix_class: %s for sensor: %s", LOG_PREFIX, item, sensor
-                )
                 value = self._config.sensors.prefix_class.get(item[0])
                 self._config.sensors.sensor_class[sensor] = value
+                LOGGER.debug(
+                    "%s prefix_class: %s for sensor: %s %s",
+                    LOG_PREFIX,
+                    item,
+                    sensor,
+                    value,
+                )
 
             # Add sensor icon data
             item = [prefix for prefix in prefix_icon if prefix in sensor]
@@ -237,19 +248,35 @@ class HomeAgent:
         self._connector.ping("homeassistant/ping")
 
     ###########################################################
-    def get_identifier(self):
-        """Get a unique id for this device"""
+    def get_identifiers(self):
+        """Get a unique identifier for this device"""
 
-        _items = ["serial", "mac_address", "ip_address"]
+        items = ["serial", "mac_address", "ip_address"]
         _id = None
-        while _id is None and len(_items) > 0:
-            _key = _items.pop(0)
+        while _id is None and len(items) > 0:
+            _key = items.pop(0)
             _id = self.states.get(_key)
             if "Serial" in _id or "O.E.M." in _id:
-                _id = None
+                continue
+
+        self._config.device.identifiers = _id
 
         LOGGER.info("%s Device identifier: %s", LOG_PREFIX, _id)
-        self._config.identifier = _id
+
+    ###########################################################
+    def get_connections(self):
+        """Get connection identifiers for this device"""
+        _conn = []
+        for _value in self.states.get("mac_addresses"):
+            if _value:
+                _conn.append(["mac", _value])
+
+        for _value in self.states.get("ip4_addresses"):
+            if _value:
+                _conn.append(["ip_address", _value])
+
+        self._config.device.connections = _conn
+        LOGGER.info("%s Device connections: %s", LOG_PREFIX, _conn)
 
     ###########################################################
     def metrics(self):
@@ -278,6 +305,7 @@ class HomeAgent:
         """Run tasks to publish events"""
 
         LOGGER.debug("%s Running events", LOG_PREFIX)
+        self._save_state()
         self._publish_online()
         if self._ha_connected:
             self.update_sensors(True)
@@ -291,6 +319,40 @@ class HomeAgent:
         states, attribs = self.platform_class.state()
         self.states.update(states)
         self.attribs.update(attribs)
+
+    ###########################################################
+    def _save_state(self):
+        """Write state dict to file"""
+        _file = f"{self._config.dir}/state.json"
+        LOGGER.debug("%s Saving states to %s", LOG_PREFIX, _file)
+        with open(_file, "w", encoding="utf-8") as _states:
+            _state = {
+                STATE: self.states.copy(),
+                ATTRIBS: self.attribs.copy(),
+                "device": self.device.copy(),
+            }
+            _state[STATE].pop("screen_capture")
+            _states.write(json.dumps(_state, default=str, indent=4))
+
+    ###########################################################
+    def _load_state(self):
+        """Write state dict to file"""
+        _file = f"{self._config.dir}/state.json"
+        if not os.path.exists(_file):
+            return
+
+        LOGGER.debug("%s Loading states from %s", LOG_PREFIX, _file)
+        with open(_file, "r", encoding="utf-8") as _states:
+            _data = _states.read()
+
+        try:
+            _state = json.loads(_data)
+            self.states = _state.get(STATE)
+            self.attribs = _state.get(ATTRIBS)
+
+        except json.JSONDecodeError as err:
+            LOGGER.error("%s Failed to load states from json", LOG_PREFIX)
+            LOGGER.error(err)
 
     ###########################################################
     def message_send(self, _data):
@@ -359,7 +421,7 @@ class HomeAgent:
 
         self.message_send(
             {
-                TOPIC: f"{self._config.prefix.device}/{self._config.hostname}/availability",
+                TOPIC: f"{self._config.device.topic}/status",
                 PAYLOAD: _state,
             }
         )
@@ -370,13 +432,22 @@ class HomeAgent:
 
         LOGGER.debug("%s publish_device %s", LOG_PREFIX, self._config.hostname)
         self.device = setup_device(self._config, self.states)
+
         _data = setup_sensor(
             self._config,
-            "trigger_turn_on",
-            "device_automation",
+            "Online",
+            "binary_sensor",
+            ONLINE_ATTRIB,
         )
         _data[PAYLOAD].update(self.device)
+        _data[PAYLOAD]["~"] = self._config.device.topic
+        _data[PAYLOAD]["state_topic"] = f"{self._config.device.topic}/status"
         self.message_send(_data)
+        LOGGER.debug("%s device: %s", LOG_PREFIX, _data)
+
+        _data[PAYLOAD]["name"] = "Online"
+        self.message_send(_data)
+        self._publish_online()
 
     ###########################################################
     def _setup_module_services(self, _module):
@@ -391,7 +462,7 @@ class HomeAgent:
                 "%s Setup service %s for module %s", LOG_PREFIX, _service, _module
             )
             self._services[_service] = getattr(self._modules[_module], _service)
-            topic = f"{self._config.prefix.device}/{self._config.hostname}/{_service}"
+            topic = f"{self._config.device.topic}/{_service}"
             self._connector.subscribe_to(topic)
 
     ###########################################################
@@ -581,17 +652,21 @@ class HomeAgent:
 
 
 #######################################################
-def setup_device(_config, _sysinfo):
+def setup_device(_config, _states):
     """Return dict with device data"""
+
+    if _config.device.identifiers is None:
+        LOGGER.error("%s setup_device() Missing device identifier")
+        raise Exception("Missing device identifier")
 
     return {
         "device": {
             "name": _config.host.friendly_name,
-            "identifiers": _config.identifer,
-            "connections": [["mac", _sysinfo.get("mac_address")]],
-            "manufacturer": _sysinfo.get("manufacturer"),
-            "model": _sysinfo.get("model"),
-            "sw_version": _sysinfo.get("platform_release"),
+            "identifiers": _config.device.identifiers,
+            "connections": _config.device.connections,
+            "manufacturer": _states.get("manufacturer"),
+            "model": _states.get("model"),
+            "sw_version": _states.get("firmware"),
         },
     }
 
@@ -614,18 +689,20 @@ def setup_sensor(_config, sensor="Status", sensor_type=None, attribs=None):
         sensor_type,
     )
 
-    topic = f"homeassistant/{sensor_type}/{unique_id}"
+    topic = f"{_config.prefix.discover}/{sensor_type}/{unique_id}"
     config_topic = f"{topic}/config"
 
     payload = {
         "~": topic,
         "name": unique_id,
         "unique_id": unique_id,
-        "state_topic": "~/state",
-        "device": {"identifiers": _config.identifier},
+        "state_topic": f"{topic}/state",
+        "device": {"identifiers": _config.device.identifiers},
     }
 
-    attribs = _config.sensors.attrib.get(sensor_type)
+    if not attribs:
+        attribs = _config.sensors.attrib.get(sensor_type)
+
     if attribs is not None:
         if isinstance(attribs, dict):
             for item, value in attribs.items():

@@ -5,6 +5,7 @@ import logging
 #########################################
 def log(name="homeagent"):
     """Setup logger"""
+    logging.raiseExceptions = False
     _LOGGER = logging.getLogger(name)
 
     level = logging.getLevelName("INFO")

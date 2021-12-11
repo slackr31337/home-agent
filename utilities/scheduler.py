@@ -7,7 +7,7 @@ import signal
 import threading
 
 
-from log import LOGGER
+from utilities.log import LOGGER
 
 LOG_PREFIX = "[Scheduler]"
 ###############################

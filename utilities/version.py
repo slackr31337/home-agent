@@ -3,7 +3,7 @@
 import os
 
 
-path = os.path.dirname(__file__)
+path = os.path.dirname(os.path.dirname(__file__))
 VERSIONFILE = f"{path}/VERSION"
 with open(VERSIONFILE, "rt", encoding="utf-8") as file1:
     VERSION = file1.read()

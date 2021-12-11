@@ -5,7 +5,7 @@ import time
 import paho.mqtt.client as mqtt
 
 
-from log import LOGGER
+from utilities.log import LOGGER
 from const import TOPIC, PAYLOAD
 
 TLS_CA_PATH = "/etc/ssl/certs/"
@@ -31,21 +31,21 @@ class Connector(mqtt.Client):
     #########################################
     def __init__(
         self,
-        _config,
-        _connected,
+        config,
+        event,
         clientid,
         **kwargs,
     ):
 
         super(Connector, self).__init__(clientid, **kwargs)
-        self._connected_event = _connected
+        self._message_event = event
         self.disconnected = None
         self._connected = False
         self._callback = None
         self._subscribe = []
 
-        self._host = _config.mqtt.host
-        self._port = _config.mqtt.port
+        self._host = config.mqtt.host
+        self._port = config.mqtt.port
 
         if clientid is None:
             clientid = f"mqtt_client_{int(time.time())}"
@@ -65,7 +65,7 @@ class Connector(mqtt.Client):
             self._mqttc.tls_insecure_set(True)
 
         self._mqttc.username_pw_set(
-            username=_config.mqtt.user, password=_config.mqtt.password
+            username=config.mqtt.user, password=config.mqtt.password
         )
         self._mqttc.on_connect = self.mqtt_on_connect
         self._mqttc.on_disconnect = self.mqtt_on_disconnect
@@ -82,10 +82,9 @@ class Connector(mqtt.Client):
         if rc == 0:
             self._connected = True
             LOGGER.info("[MQTT] Connected mqtt://%s:%s", self._host, self._port)
-            self._connected_event.set()
+            self._message_event.set()
         else:
             self._connected = False
-            self._connected_event.clear()
             LOGGER.error("[MQTT] Connection Failed. %s", MQTT_CONN_CODES.get(rc))
 
     #########################################
@@ -93,11 +92,11 @@ class Connector(mqtt.Client):
         """MQTT broker was disconnected"""
         self._connected = False
         self.disconnected = True, rc
-        self._connected_event.clear()
 
     #########################################
     def mqtt_on_message(self, mqttc, obj, msg):
         LOGGER.debug("[MQTT] %s payload: %s", msg.topic, msg.payload)
+        self._message_event.set()
         if self._callback is not None:
             payload = str(msg.payload.decode("utf-8"))
             if payload[0] == "}":
@@ -178,7 +177,8 @@ class Connector(mqtt.Client):
         if isinstance(payload, dict):
             payload = json.dumps(payload, default=str)
         LOGGER.debug("%s publish: %s", LOG_PREFIX, _topic)
-        return self._mqttc.publish(_topic, payload=payload, qos=qos, retain=retain)
+        self._mqttc.publish(_topic, payload=payload, qos=qos, retain=retain)
+        self._message_event.set()
 
     #########################################
     def ping(self, topic):

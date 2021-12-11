@@ -6,7 +6,7 @@ import ctypes.util
 from mss import mss
 
 
-from log import LOGGER
+from utilities.log import LOGGER
 from config import HOSTNAME
 
 LOG_PREFIX = "[display]"
@@ -66,8 +66,8 @@ class AgentModule:
             "idle_seconds": 0,
             "timeout": timeout,
             "display_idle": False,
-            "disable_capture": False,
             "display_locked": False,
+            "disable_capture": True,
         }
         self._setup()
 

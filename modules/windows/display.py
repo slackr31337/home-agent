@@ -4,7 +4,7 @@ import ctypes
 from mss import mss
 
 
-from log import LOGGER
+from utilities.log import LOGGER
 from config import HOSTNAME, TMP_DIR
 
 LOG_PREFIX = "[windows_display]"

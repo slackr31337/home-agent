@@ -2,15 +2,10 @@
 
 import argparse
 
-
-from _version import __version__
-from const import APP_NAME
-
-APP_VER = f"{APP_NAME} {__version__}"
 ########################################################
-def parse_args(argv):
+def parse_args(argv, app_name):
     """Parse command line arguments"""
-    parser = argparse.ArgumentParser(description=APP_VER)
+    parser = argparse.ArgumentParser(description=app_name)
 
     parser.add_argument(
         "-c",

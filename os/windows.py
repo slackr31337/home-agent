@@ -8,10 +8,10 @@ from cpuinfo import get_cpu_info
 import wmi
 
 
-from log import LOGGER
-from util import get_boot
+from utilities.log import LOGGER
+from utilities.util import get_boot
 
-LOG_PREFIX = "[Linux]"
+LOG_PREFIX = "[Windows]"
 ########################################################
 class AgentPlatform:
     _svc_name_ = "HomeAgent"

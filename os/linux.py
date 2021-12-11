@@ -6,14 +6,14 @@ import socket
 import distro
 import psutil
 from psutil._common import bytes2human
-from datetime import datetime
 from cpuinfo import get_cpu_info
 from dmidecode import DMIDecode
 
 
-from log import LOGGER
+from utilities.log import LOGGER
+from utilities.util import get_boot
 
-SKIP_MOUNTS = ["live", "docker", "subvol"]
+SKIP_MOUNTS = ["live", "docker", "subvol", "tmp"]
 LOG_PREFIX = "[Linux]"
 ########################################################
 class AgentPlatform:
@@ -199,7 +199,7 @@ class AgentPlatform:
             count = 0
             for sensor in sensors:
                 if len(sensor.label) == 0:
-                    _label = f"Temp {count}"
+                    _label = f"temp_{count}"
                 else:
                     _label = sensor.label.lower().replace(" ", "_")
 
@@ -225,14 +225,3 @@ class AgentPlatform:
         self._sensors.update(_data)
 
     ########################################################
-
-
-########################################################
-def get_boot():
-
-    boot_time_timestamp = psutil.boot_time()
-    bt = datetime.fromtimestamp(boot_time_timestamp)
-    return f"{bt.year}-{bt.month}-{bt.day} {bt.hour}:{bt.minute}"
-
-
-########################################################

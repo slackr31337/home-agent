@@ -1,6 +1,5 @@
 """Constants used in module"""
 
-APP_NAME = "Home Agent endpoint"
 UPTIME = "uptime"
 RUNTIME = "runtime"
 LOCATION = "location"

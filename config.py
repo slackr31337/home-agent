@@ -1,9 +1,12 @@
 """Configuration constants"""
 
+import os
 import platform
 import tempfile
 import yaml
 
+
+from utilities.version import __version__
 
 CONFIG_FILE = "config.yaml"
 TMP_DIR = tempfile.tempdir
@@ -14,15 +17,17 @@ DISCOVER_PREFIX = "homeassistant"
 DEVICE_PREFIX = "devices"
 TOPICS = ["command", "event"]
 
-SUBS = [f"{DISCOVER_PREFIX}/event"]
-for topic in TOPICS:
-    SUBS.append(f"{DEVICE_PREFIX}/{HOSTNAME}/{topic}")
-
+DEVICE_TOPIC = f"{DEVICE_PREFIX}/{HOSTNAME}"
+DEVICE_STATUS = f"{DEVICE_TOPIC}/status"
 DEVICE_AVAILABILITY = {
     "availability": {
-        "topic": f"{DEVICE_PREFIX}/{HOSTNAME}/availability",
+        "topic": DEVICE_STATUS,
     }
 }
+
+SUBS = [f"{DISCOVER_PREFIX}/event"]
+for topic in TOPICS:
+    SUBS.append(f"{DEVICE_TOPIC}/{topic}")
 
 PUBLISH_SENSORS = {
     "ip_address": {},
@@ -47,11 +52,13 @@ PUBLISH_SENSOR_PREFIX = [
     "disk_",
     "network_enp",
     "network_eth",
+    "network_wl",
     "temp",
     "coretemp",
     "k10temp_",
     "w83795g_temp",
     "w83795g_fan",
+    "acpitz",
 ]
 
 ICON_MAP = {
@@ -70,6 +77,7 @@ ICON_PREFIX_MAP = {
     "temp_": "thermometer-lines",
     "coretemp": "thermometer-lines",
     "fan": "fan",
+    "acpitz_": "thermometer-lines",
 }
 
 CLASS_TEMP = {"state_class": "measurement", "unit_of_measurement": "C"}
@@ -81,9 +89,10 @@ PREFIX_CLASS_MAP = {
     "network_": {},
     "temp_": CLASS_TEMP,
     "coretemp": CLASS_TEMP,
-    "k10temp_": CLASS_TEMP,
+    "k10temp": CLASS_TEMP,
     "w83795g_temp": CLASS_TEMP,
     "w83795g_fan": CLASS_RPM,
+    "acpitz_": CLASS_TEMP,
 }
 
 CLASS_MAP = {
@@ -124,7 +133,7 @@ ATTRIB_MAP = {
         "automation_type": "trigger",
         "type": "action",
         "subtype": "turn_on",
-        "topic": f"{DEVICE_PREFIX}/{HOSTNAME}/trigger_action",
+        "topic": f"{DEVICE_TOPIC}/rigger_action",
     },
     "switch": {
         "topic": "~/state",
@@ -134,18 +143,33 @@ ATTRIB_MAP = {
     },
 }
 
+ONLINE_ATTRIB = {
+    "device_class": "connectivity",
+    "icon": "mdi:desktop-classic",
+    "expire_after": 300,
+    "payload_on": "online",
+    "payload_off": "offline",
+    "json_attributes_topic": "~/attrib",
+}
+
 TYPE_MAP = {
     "device_automation": "device_automation",
     "battery_plugged_in": "binary_sensor",
 }
 
+APP_NAME = "Home Agent endpoint"
 #########################################
 def load_config(_file=CONFIG_FILE):
     """Load configuration from yaml"""
+
     with open(_file, "r", encoding="utf-8") as conf:
         _config = yaml.safe_load(conf)
 
     params = {
+        "app_name": APP_NAME,
+        "app_ver": f"{APP_NAME} {__version__}",
+        "dir": os.path.dirname(__file__),
+        "device": {"identifiers": None, "connections": None, "topic": DEVICE_TOPIC},
         "subscriptions": SUBS,
         "prefix": {"discover": DISCOVER_PREFIX, "device": DEVICE_PREFIX},
         "sensors": {
