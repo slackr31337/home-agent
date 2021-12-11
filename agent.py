@@ -258,7 +258,7 @@ class HomeAgent:
             _key = items.pop(0)
             _id = self.states.get(_key)
             if "Serial" in _id or "O.E.M." in _id:
-                continue
+                _id = None
 
         self._config.device.identifiers = _id
 
