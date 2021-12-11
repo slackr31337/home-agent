@@ -62,4 +62,4 @@ if __name__ == "__main__":
         LOGGER.error(err)
         LOGGER.error(traceback.format_exc())
 
-    LOGGER.info("Finished %s", APP_NAME)
+    LOGGER.info("Quit %s", APP_NAME)

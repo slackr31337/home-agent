@@ -18,9 +18,9 @@ class Scheduler:
     def __init__(self):
         signal.signal(signal.SIGINT, self.stop)
         signal.signal(signal.SIGTERM, self.stop)
-        self.ready = deque()
         self.event = threading.Event()
         self.event.clear()
+        self.ready = deque()
         self.sleeping = []
         self.running = False
 
@@ -32,7 +32,7 @@ class Scheduler:
         self.event.set()
 
     ###########################
-    def queue(self, func, sleep, forever=False):
+    def queue(self, func, sleep=10, forever=False):
         """
         Adds the func to the sleeping queue
         after calcualting deadline
@@ -96,10 +96,14 @@ class Scheduler:
             while self.ready:
                 func = self.ready.popleft()
                 LOGGER.debug("%s Running task %s()", LOG_PREFIX, func.__name__)
-                func()
+                try:
+                    func()
+                except Exception as err:
+                    LOGGER.error("%s Task exception: %s", LOG_PREFIX, err)
 
             if timeout:
                 LOGGER.debug("%s Waiting %s seconds", LOG_PREFIX, timeout)
                 self.event.wait(timeout)
 
+    LOGGER.info("%s Exit event loop", LOG_PREFIX)
     ###########################
