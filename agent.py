@@ -13,6 +13,7 @@ import ipaddress
 
 
 from utilities.log import LOGGER
+from utilities.util import calc_elasped
 from config import ONLINE_ATTRIB
 from const import (
     ATTRIBS,
@@ -136,7 +137,7 @@ class HomeAgent:
 
         for _mod in _mods:
             _name = pathlib.Path(_mod).stem
-            LOGGER.debug(
+            LOGGER.info(
                 "%s Import module: %s-%s", LOG_PREFIX, self._config.platform, _name
             )
 
@@ -159,14 +160,8 @@ class HomeAgent:
                 self._setup_module_services(_class.slug)
 
             except Exception as err:
-                LOGGER.error(
-                    "###########################################################"
-                )
                 LOGGER.error("%s Failed to load module %s. %s", LOG_PREFIX, _name, err)
                 LOGGER.debug(traceback.format_exc())
-                LOGGER.error(
-                    "###########################################################"
-                )
 
     ###########################################################
     def start(self):
@@ -188,6 +183,9 @@ class HomeAgent:
             self.update_sensors(True)
             self.update_device_tracker()
             self._publish_online()
+
+        elasped = calc_elasped(self.start_time)
+        LOGGER.info("%s Startup finished in %s", LOG_PREFIX, elasped)
 
     ###########################################################
     def stop(self):

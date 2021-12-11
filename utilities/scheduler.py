@@ -27,6 +27,7 @@ class Scheduler:
     ###########################
     def run(self, func):
         """Adds the func to the ready queue immediately"""
+        LOGGER.info("%s Task %s() scheduled to run", LOG_PREFIX, func.__name__)
         self.ready.append(func)
         self.event.set()
 
@@ -39,6 +40,9 @@ class Scheduler:
         deadline = time.time() + sleep
         heapq.heappush(self.sleeping, (deadline, func, sleep, forever))
         self.event.set()
+        LOGGER.info(
+            "%s Task %s() queued to run in %s seconds", LOG_PREFIX, func.__name__, sleep
+        )
 
     ###########################
     def stop(self, signum=0, frame=None):
@@ -94,7 +98,7 @@ class Scheduler:
                 LOGGER.debug("%s Running task %s()", LOG_PREFIX, func.__name__)
                 func()
 
-            if timeout is not None:
+            if timeout:
                 LOGGER.debug("%s Waiting %s seconds", LOG_PREFIX, timeout)
                 self.event.wait(timeout)
 
