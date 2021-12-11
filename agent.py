@@ -331,7 +331,8 @@ class HomeAgent:
                 ATTRIBS: self.attribs.copy(),
                 "device": self.device.copy(),
             }
-            _state[STATE].pop("screen_capture")
+            if "screen_capture" in _state[STATE]:
+                _state[STATE].pop("screen_capture")
             _states.write(json.dumps(_state, default=str, indent=4))
 
     ###########################################################
