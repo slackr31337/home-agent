@@ -80,7 +80,6 @@ class AgentPlatform:
     def _update_system_info(self):
         """Build system information and return dict"""
 
-        memory_usage = psutil.virtual_memory()
         logins = psutil.users()
         users = 0
         attribs = {}
@@ -93,6 +92,7 @@ class AgentPlatform:
 
         self._attribs["users"] = attribs
 
+        memory_usage = psutil.virtual_memory()
         _data = {
             "users": users,
             "ip_address": None,

@@ -20,7 +20,7 @@ TOPICS = ["command", "event"]
 DEVICE_TOPIC = f"{DEVICE_PREFIX}/{HOSTNAME}"
 DEVICE_STATUS = f"{DEVICE_TOPIC}/status"
 
-SUBS = [f"{DISCOVER_PREFIX}/event"]
+SUBS = [f"{DISCOVER_PREFIX}/status"]
 for topic in TOPICS:
     SUBS.append(f"{DEVICE_TOPIC}/{topic}")
 

@@ -2,16 +2,22 @@
 import ssl
 import json
 import time
+import platform
 import paho.mqtt.client as mqtt
 
 
 from utilities.log import LOGGER
 from const import TOPIC, PAYLOAD
 
-TLS_CA_PATH = "/etc/ssl/certs/"
-TLS_CA_CERT = "/etc/ssl/certs/ca-certificates.crt"
-TLS_CERT = "/etc/ssl/private/mqtt_client.crt"
-TLS_KEY = "/etc/ssl/private/mqtt_client.key"
+if platform.system() == "Linux":
+    TLS_CA_CERT = "/etc/ssl/certs/ca-certificates.crt"
+    TLS_CERT = "/etc/ssl/private/mqtt_client.crt"
+    TLS_KEY = "/etc/ssl/private/mqtt_client.key"
+
+else:
+    TLS_CA_CERT = None
+    TLS_CERT = ""
+    TLS_KEY = ""
 
 MQTT_CONN_CODES = {
     0: "Connected",

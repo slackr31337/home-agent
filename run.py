@@ -21,12 +21,9 @@ def run_service(_config, _sensors=None):
 
     state = {}
     agent = HomeAgent(_config, state, _sensors)
+    
     sched = Scheduler(state)
-
-    sched.run(
-        agent.start,
-    )
-
+    sched.run(agent.start)
     sched.queue(agent.metrics, 10)
     sched.queue(agent.events, 10)
 

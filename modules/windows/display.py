@@ -1,22 +1,24 @@
 """Module for polling display metrics"""
 
+import tempfile
 import ctypes
 from mss import mss
 
 
 from utilities.log import LOGGER
-from config import HOSTNAME, TMP_DIR
+from config import HOSTNAME
 
-LOG_PREFIX = "[windows_display]"
+LOG_PREFIX = "[display]"
 ################################################################
-class agent_module:
+class AgentModule:
 
     name = "Windows display module"
-    slug = "windows_display"
+    slug = "display"
     platform = ["windows"]
     services = {}
     sensors = ["display_idle", "screen_capture", "disable_capture", "display_locked"]
     sensors_set = ["disable_capture", "display_locked"]
+    attribs = {}
     sensor_types = {
         "display_idle": "binary_sensor",
         "screen_capture": "camera",
@@ -32,40 +34,52 @@ class agent_module:
             "command_topic": "~/set",
         },
     }
-
+    sensor_class = {}
+    sensor_icons = {
+        "display_idle": "monitor",
+        "disable_capture": "monitor-eye",
+        "display_locked": "monitor-lock",
+    }
     ###############################################################
-    def __init__(self, _timeout=300):
+    def __init__(self, timeout=300):
         LOGGER.debug("%s init module", LOG_PREFIX)
         self._user32 = ctypes.windll.User32
-        self._display_idle = None
-        self._disable_capture = False
-        self._display_locked = False
         self._available = False
-        self._timeout = _timeout
-        self._idle_seconds = 0
-        self._set = {
-            "disable_capture": self._disable_capture,
-            "display_locked": self._display_locked,
+        self._temp_file = f"{tempfile.gettempdir()}/{HOSTNAME}_screen_capture.png"
+        self._state = {
+            "idle_seconds": 0,
+            "timeout": timeout,
+            "display_idle": False,
+            "display_locked": False,
+            "disable_capture": False,
         }
-        # self._setup()
 
     ###############################################################
     def display_idle(self):
         """Home Assistant sensor display_idle"""
-        self._display_locked = bool(self.user32.GetForegroundWindow() == 0)
-        self._display_idle = False
+        self._state["display_locked"] = bool(self.user32.GetForegroundWindow() == 0)
+        self._state["idle_seconds"] = 0
 
+        if self._state["idle_seconds"] > self._state["timeout"]:
+            self._state["display_idle"] = True
+        else:
+            self._state["display_idle"] = False
+
+        return self._state["display_idle"], {
+            "idle": self._state["idle_seconds"],
+            "timeout": self._state["timeout"],
+        }
     ##############################################################
     def display_locked(self, _value=None):
         """Home Assistant switch"""
         if _value is not None:
-            self._display_locked = bool(_value="ON")
+            self._state["display_locked"] = bool(_value="ON")
 
         elif _value == "ON":
             ctypes.windll.user32.LockWorkStation()
-            self._display_locked = True
+            self._state["display_locked"] = True
 
-        return self._display_locked
+        return self._state["display_locked"], None
 
     ###############################################################
     def screen_capture(self):
@@ -76,18 +90,18 @@ class agent_module:
         with mss() as sct:
             filename = sct.shot(
                 mon=-1,
-                output=f"{TMP_DIR}\{HOSTNAME}_screen_capture.png",
+                output=self._temp_file,
             )
-        _image = open(filename, "rb")
-        imagestring = _image.read()
+        with open(filename, "rb") as _image:
+            imagestring = _image.read()
 
-        return bytearray(imagestring)
+        return bytearray(imagestring), None
 
     ###############################################################
     def get(self, _method):
         """Return state for given method"""
         LOGGER.debug(_method)
-        return None
+        return None, None
 
     ###############################################################
     def set(self, _item, _value):
