@@ -67,7 +67,7 @@ class AgentModule:
             "timeout": timeout,
             "display_idle": False,
             "display_locked": False,
-            "disable_capture": True,
+            "disable_capture": False,
         }
         self._setup()
 
