@@ -29,10 +29,11 @@ class HomeAgent:
     """Class to collect and report endpoint data"""
 
     ###########################################################
-    def __init__(self, config, sensors=None):
+    def __init__(self, config, state, sensors=None):
         """Init class"""
         self._message_event = threading.Event()
         self._config = config
+        self.states = state
         self._connector = None
         self._ha_connected = False
         self._modules = {}
@@ -41,7 +42,7 @@ class HomeAgent:
         self._last_sensors = {}
         self.platform_class = None
         self.device = {}
-        self.states = {}
+
         self.attribs = {}
         self.icons = {}
         self.sensors = sensors
@@ -169,6 +170,7 @@ class HomeAgent:
 
         LOGGER.debug("%s Running startup tasks", LOG_PREFIX)
         self.start_time = time.time()
+        self._load_state()
         self.get_sysinfo()
         self.get_identifiers()
         self.get_connections()
@@ -177,11 +179,8 @@ class HomeAgent:
         self._add_sensor_prefixes()
         self._setup_sensors()
         self._setup_device_tracker()
-        self._load_state()
 
         if self._ha_connected:
-            self.update_sensors(True)
-            self.update_device_tracker()
             self._publish_online()
 
         elasped = calc_elasped(self.start_time)
@@ -286,6 +285,8 @@ class HomeAgent:
     ###########################################################
     def modules(self):
         """Run tasks to publish metrics"""
+        if not self._ha_connected:
+            return
 
         LOGGER.debug("%s Running modules", LOG_PREFIX)
         for slug in self._modules:
@@ -301,9 +302,10 @@ class HomeAgent:
         """Run tasks to publish events"""
 
         LOGGER.debug("%s Running events", LOG_PREFIX)
+
         self._save_state()
-        self._publish_online()
         if self._ha_connected:
+            self._publish_online()
             self.update_sensors(True)
             self.update_device_tracker()
 
@@ -354,6 +356,9 @@ class HomeAgent:
     ###########################################################
     def message_send(self, _data):
         """Send message to Home Assistant using connector"""
+        if not self._ha_connected:
+            LOGGER.errror("%s Unable to send messge. HA disconnected")
+            return
 
         # LOGGER.debug("%s message: %s", LOG_PREFIX, _data.get(TOPIC))
         _topic = _data.get(TOPIC)
@@ -396,7 +401,7 @@ class HomeAgent:
 
         elif command == "set":
             sensor = _data.get(TOPIC, "").split("/")[-2].split("_", 1)[1]
-            LOGGER.debug("%s sensor: %s set state: %s", LOG_PREFIX, sensor, payload)
+            LOGGER.info("%s cmd %s set state: %s", LOG_PREFIX, sensor, payload)
             if sensor in self._callback:
                 _func = self._callback.get(sensor)
                 _state = _func(sensor, payload)

@@ -7,7 +7,8 @@ from datetime import datetime
 #########################################
 def get_boot():
     """Get system boot date and time"""
-    return str(datetime.fromtimestamp(psutil.boot_time()))
+    boot = str(datetime.fromtimestamp(psutil.boot_time())).replace(" ", "T")
+    return f"{boot}+00:00"
 
 
 #########################################

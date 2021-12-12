@@ -19,12 +19,16 @@ def run_service(_config, _sensors=None):
     """Run Home Agent Service"""
     LOGGER.info("%s is starting", LOG_PREFIX)
 
-    agent = HomeAgent(_config, _sensors)
-    sched = Scheduler()
+    state = {}
+    agent = HomeAgent(_config, state, _sensors)
+    sched = Scheduler(state)
 
     sched.run(
         agent.start,
     )
+
+    sched.queue(agent.metrics, 10)
+    sched.queue(agent.events, 10)
 
     sched.queue(agent.metrics, _config.intervals.metrics, True)
     sched.queue(agent.events, _config.intervals.events, True)
@@ -33,6 +37,7 @@ def run_service(_config, _sensors=None):
 
     sched.start()
 
+    LOGGER.info("%s Stopping", LOG_PREFIX)
     agent.stop()
 
     LOGGER.info("%s has stopped", LOG_PREFIX)

@@ -8,6 +8,7 @@ import threading
 
 
 from utilities.log import LOGGER
+from const import STARTED
 
 LOG_PREFIX = "[Scheduler]"
 ###############################
@@ -15,21 +16,23 @@ class Scheduler:
     """Event Scheduler Class"""
 
     ###########################
-    def __init__(self):
+    def __init__(self, states):
         signal.signal(signal.SIGINT, self.stop)
         signal.signal(signal.SIGTERM, self.stop)
+        self.states = states
+        self.states["scheduler"] = {STARTED: time.time(), "queue": {}, "running": False}
         self.event = threading.Event()
-        self.event.clear()
         self.ready = deque()
         self.sleeping = []
         self.running = False
 
     ###########################
-    def run(self, func):
+    def run(self, func, **args):
         """Adds the func to the ready queue immediately"""
         LOGGER.info("%s Task %s() scheduled to run", LOG_PREFIX, func.__name__)
         self.ready.append(func)
-        self.event.set()
+        if self.running:
+            self.event.set()
 
     ###########################
     def queue(self, func, sleep=10, forever=False):
@@ -38,11 +41,19 @@ class Scheduler:
         after calcualting deadline
         """
         deadline = time.time() + sleep
-        heapq.heappush(self.sleeping, (deadline, func, sleep, forever))
-        self.event.set()
+        heapq.heappush(self.sleeping, (deadline, sleep, forever, func))
         LOGGER.info(
             "%s Task %s() queued to run in %s seconds", LOG_PREFIX, func.__name__, sleep
         )
+        if forever:
+            self.states["scheduler"]["queue"][func.__name__] = {
+                "job": func,
+                "sleep": sleep,
+                "count": 0,
+                "last": 0,
+            }
+        if self.running:
+            self.event.set()
 
     ###########################
     def stop(self, signum=0, frame=None):
@@ -67,31 +78,30 @@ class Scheduler:
                 self.event.clear()
 
             if not self.ready:
+
                 if self.sleeping:
                     deadline = self.sleeping[0][0]
-                    timeout = int(deadline - time.time())
-                    if timeout < 1:
-                        timeout = None
-                    elif timeout > 10:
-                        timeout = 10
+                    sleep = int(deadline - time.time())
+                    timeout = min(sleep, 10) if sleep >= 1 else None
                 else:
-                    timeout = None
+                    deadline = None
 
-                while self.sleeping:
-                    if self.sleeping[0][0] < time.time():
-                        deadline, func, sleep, forever = heapq.heappop(self.sleeping)
-                        LOGGER.debug(
-                            "%s New task is ready: %s()", LOG_PREFIX, func.__name__
-                        )
-                        self.ready.append(func)
+                while deadline and deadline < time.time():
+                    # if self.sleeping[0][0] < time.time():
+                    deadline, sleep, forever, func = heapq.heappop(self.sleeping)
+                    LOGGER.debug(
+                        "%s New task is ready: %s()", LOG_PREFIX, func.__name__
+                    )
 
-                        if forever:
-                            deadline = time.time() + sleep
-                            heapq.heappush(
-                                self.sleeping, (deadline, func, sleep, forever)
-                            )
-                    else:
-                        break
+                    self.ready.append(func)
+
+                    if forever:
+                        self.states["scheduler"]["queue"][func.__name__]["count"] += 1
+                        self.states["scheduler"]["queue"][func.__name__][
+                            "last"
+                        ] = time.time()
+                        deadline = time.time() + sleep
+                        heapq.heappush(self.sleeping, (deadline, sleep, forever, func))
 
             while self.ready:
                 func = self.ready.popleft()
