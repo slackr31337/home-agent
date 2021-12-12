@@ -44,9 +44,11 @@ class Scheduler:
         LOGGER.info(
             "%s Task %s() queued to run in %s seconds", LOG_PREFIX, func.__name__, sleep
         )
-        deadline = float(time.time() + sleep)
-        task = (deadline, sleep, forever, func)
-        heapq.heappush(self.sleeping, task)
+        try:
+            deadline = float(time.time() + sleep)
+            heapq.heappush(self.sleeping, (deadline, sleep, forever, func))
+        except Exception as err:
+            LOGGER.error("%s queue exception %s",LOG_PREFIX, err)
         #if forever:
         #    self.states["scheduler"]["queue"][func.__name__] = {
         #        "job": func,

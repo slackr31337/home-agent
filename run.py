@@ -14,7 +14,7 @@ from agent import LOG_PREFIX, HomeAgent
 
 
 LOG_PREFIX = "[HomeAgent]"
-########################################################
+#########################################
 def run_service(_config, _sensors=None):
     """Run Home Agent Service"""
     LOGGER.info("%s is starting", LOG_PREFIX)
@@ -39,9 +39,9 @@ def run_service(_config, _sensors=None):
 
     LOGGER.info("%s has stopped", LOG_PREFIX)
 
-
 #########################################
-if __name__ == "__main__":
+def main():
+    """Main run function"""
     LOGGER.info("Starting %s", APP_NAME)
     _args = parse_args(sys.argv[1:], APP_NAME)
 
@@ -65,3 +65,7 @@ if __name__ == "__main__":
         LOGGER.error(traceback.format_exc())
 
     LOGGER.info("Quit %s", APP_NAME)
+
+#########################################
+if __name__ == "__main__":
+    main()

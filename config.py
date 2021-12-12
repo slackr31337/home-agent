@@ -164,6 +164,7 @@ def load_config(_file=CONFIG_FILE):
         "app_name": APP_NAME,
         "app_ver": f"{APP_NAME} {__version__}",
         "dir": os.path.dirname(__file__),
+        "temp_dir": TMP_DIR,
         "device": {
             "topic": DEVICE_TOPIC,
             "availability": DEVICE_STATUS,
@@ -186,7 +187,6 @@ def load_config(_file=CONFIG_FILE):
     params.update(_config)
     params["hostname"] = HOSTNAME
     params["platform"] = PLATFORM
-    params["temp_dir"] = TMP_DIR
     return params
 
 

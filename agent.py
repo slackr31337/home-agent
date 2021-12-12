@@ -321,23 +321,30 @@ class HomeAgent:
     ###########################################################
     def _save_state(self):
         """Write state dict to file"""
-        _file = f"{self._config.dir}/state.json"
-        LOGGER.debug("%s Saving states to %s", LOG_PREFIX, _file)
-        with open(_file, "w", encoding="utf-8") as _states:
-            _state = {
+        if not self._config.temp_dir:
+            return
+            
+        _file = f"{self._config.temp_dir}/state.json"
+        _state = {
                 STATE: self.states.copy(),
                 ATTRIBS: self.attribs.copy(),
                 "device": self.device.copy(),
             }
-            if "screen_capture" in _state[STATE]:
-                _state[STATE].pop("screen_capture")
-            _states.write(json.dumps(_state, default=str, indent=4))
+        if "screen_capture" in _state[STATE]:
+            _state[STATE].pop("screen_capture")
+
+        LOGGER.debug("%s Saving states to %s", LOG_PREFIX, _file)
+        try:
+            with open(_file, "w", encoding="utf-8") as _states:
+                _states.write(json.dumps(_state, default=str, indent=4))
+        except PermissionError as err:
+            LOGGER.error("%s Save state.json failed %s", LOG_PREFIX, err)
 
     ###########################################################
     def _load_state(self):
         """Write state dict to file"""
-        _file = f"{self._config.dir}/state.json"
-        if not os.path.exists(_file):
+        _file = f"{self._config.temp_dir}/state.json"
+        if not self._config.temp_dir or not os.path.exists(_file):
             return
 
         LOGGER.debug("%s Loading states from %s", LOG_PREFIX, _file)

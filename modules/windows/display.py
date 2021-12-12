@@ -44,7 +44,8 @@ class AgentModule:
     def __init__(self, timeout=300):
         LOGGER.debug("%s init module", LOG_PREFIX)
         self._user32 = ctypes.windll.User32
-        self._available = False
+        self._mss = mss()
+        self._available = True
         self._temp_file = f"{tempfile.gettempdir()}/{HOSTNAME}_screen_capture.png"
         self._state = {
             "idle_seconds": 0,
@@ -53,6 +54,31 @@ class AgentModule:
             "display_locked": False,
             "disable_capture": False,
         }
+
+    ###############################################################
+    def available(self):
+        return self._available
+
+    ###############################################################
+    def get(self, _method):
+        """Return state for given method"""
+        LOGGER.debug("%s get: %s", LOG_PREFIX, _method)
+        if hasattr(self, _method):
+            _func = getattr(self, _method)
+            LOGGER.debug("%s module function: %s()", LOG_PREFIX, _func.__name__)
+            return _func()
+
+        _value = self._state.get(_method)
+        LOGGER.debug("%s module sensor %s %s", LOG_PREFIX, _method, _value)
+        return _value, None
+
+    ###############################################################
+    def set(self, _item, _value):
+        """Set value for given item. HA switches, etc"""
+        LOGGER.debug("%s set: %s value: %s", LOG_PREFIX, _item, _value)
+        if _item in self._state:
+            self._state[_item] = bool(_value == "ON")
+        return _value
 
     ###############################################################
     def display_idle(self):
@@ -69,6 +95,7 @@ class AgentModule:
             "idle": self._state["idle_seconds"],
             "timeout": self._state["timeout"],
         }
+
     ##############################################################
     def display_locked(self, _value=None):
         """Home Assistant switch"""
@@ -84,10 +111,11 @@ class AgentModule:
     ###############################################################
     def screen_capture(self):
         """Home Assistant camera with screenshot"""
-        if self._display_idle or self._disable_capture:
-            return None
+        if self._state["display_idle"] or self._state["disable_capture"]:
+            LOGGER.debug("%s capture_disabled", LOG_PREFIX)
+            return None, None
 
-        with mss() as sct:
+        with self._mss as sct:
             filename = sct.shot(
                 mon=-1,
                 output=self._temp_file,
