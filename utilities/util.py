@@ -7,9 +7,9 @@ from datetime import datetime
 #########################################
 def get_boot():
     """Get system boot date and time"""
-    boot_time_timestamp = psutil.boot_time()
-    bt = datetime.fromtimestamp(boot_time_timestamp)
-    return f"{bt.year}-{bt.month}-{bt.day} {bt.hour}:{bt.minute}"
+    boot = datetime.fromtimestamp(psutil.boot_time())
+    return boot.strftime("%Y-%m-%d %H:%M:%S %z")
+    # f"{bt.year}-{bt.month}-{bt.day} {bt.hour}:{bt.minute}"
 
 
 #########################################

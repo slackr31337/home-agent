@@ -97,7 +97,9 @@ class Scheduler:
                 func = self.ready.popleft()
                 LOGGER.debug("%s Running task %s()", LOG_PREFIX, func.__name__)
                 try:
+
                     func()
+
                 except Exception as err:
                     LOGGER.error("%s Task exception: %s", LOG_PREFIX, err)
 
