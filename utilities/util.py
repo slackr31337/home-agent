@@ -17,11 +17,18 @@ def calc_elasped(start, end=None, postfix=True):
 
     if end is None:
         end = time.time()
+
     elasped = end - start
     if not postfix:
         return elasped
 
     if elasped < 1:
-        return f"{int(elasped*1000)} ms"
+        elasped = int(elasped * 1000)
+        postfix = "ms"
 
-    return f"{int(elasped)} seconds"
+    elif elasped > 1:
+        postfix = "seconds"
+    else:
+        postfix = "second"
+
+    return f"{int(elasped)} {postfix}"

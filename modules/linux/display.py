@@ -10,6 +10,7 @@ from utilities.log import LOGGER
 from config import HOSTNAME
 
 LOG_PREFIX = "[display]"
+STATE_MAP = {True: "ON", False: "OFF"}
 ################################################################
 class XScreenSaverInfo(ctypes.Structure):
     _fields_ = [
@@ -138,6 +139,8 @@ class AgentModule:
             return _func()
 
         _value = self._state.get(_method)
+        if _value in STATE_MAP:
+            _value = STATE_MAP.get(_value)
         LOGGER.debug("%s module sensor %s %s", LOG_PREFIX, _method, _value)
         return _value, None
 

@@ -29,11 +29,12 @@ class HomeAgent:
     """Class to collect and report endpoint data"""
 
     ###########################################################
-    def __init__(self, config, state, sensors=None):
+    def __init__(self, config, running, sensors=None):
         """Init class"""
-        self._message_event = threading.Event()
+        self._connected_event = threading.Event()
         self._config = config
-        self.states = state
+        self._running = running
+        self.states = {}
         self._connector = None
         self._ha_connected = False
         self._modules = {}
@@ -97,18 +98,21 @@ class HomeAgent:
         _module = importlib.import_module(_name)
         _mod_class = getattr(_module, "Connector")
 
-        self._message_event.clear()
+        self._connected_event.clear()
         client_id = f"homeagent_{self._config.hostname}_{int(time.time())}"
-        self._connector = _mod_class(self._config, self._message_event, client_id)
+        self._connector = _mod_class(
+            self._config, self._connected_event, self._running, client_id
+        )
 
         self._connector.message_callback(self.message_receive)
+        self._connector.set_will(f"{self._config.device.topic}/status", "offline")
         for topic in self._config.subscriptions:
             LOGGER.info("%s Connector subscribe: %s", LOG_PREFIX, topic)
             self._connector.subscribe_to(topic)
 
         self._connector.start()
 
-        if not self._message_event.wait(15):
+        if not self._connected_event.wait(15):
             LOGGER.error(
                 "%s Connector timeout. Connected: %s",
                 LOG_PREFIX,
@@ -195,12 +199,14 @@ class HomeAgent:
             if hasattr(self._modules[module], "stop"):
                 self._modules[module].stop()
 
-        self._message_event.clear()
+        LOGGER.info("%s Disconnecting", LOG_PREFIX)
+        self._connected_event.clear()
         self._publish_online("offline")
 
-        self._message_event.wait(5)
+        self._connected_event.wait(5)
         self._connector.stop()
         self._ha_connected = False
+        LOGGER.info("%s Exit", LOG_PREFIX)
 
     ###########################################################
     def _add_sensor_prefixes(self):
@@ -321,30 +327,23 @@ class HomeAgent:
     ###########################################################
     def _save_state(self):
         """Write state dict to file"""
-        if not self._config.temp_dir:
-            return
-            
-        _file = f"{self._config.temp_dir}/state.json"
-        _state = {
+        _file = f"{self._config.dir}/state.json"
+        LOGGER.debug("%s Saving states to %s", LOG_PREFIX, _file)
+        with open(_file, "w", encoding="utf-8") as _states:
+            _state = {
                 STATE: self.states.copy(),
                 ATTRIBS: self.attribs.copy(),
                 "device": self.device.copy(),
             }
-        if "screen_capture" in _state[STATE]:
-            _state[STATE].pop("screen_capture")
-
-        LOGGER.debug("%s Saving states to %s", LOG_PREFIX, _file)
-        try:
-            with open(_file, "w", encoding="utf-8") as _states:
-                _states.write(json.dumps(_state, default=str, indent=4))
-        except PermissionError as err:
-            LOGGER.error("%s Save state.json failed %s", LOG_PREFIX, err)
+            if "screen_capture" in _state[STATE]:
+                _state[STATE].pop("screen_capture")
+            _states.write(json.dumps(_state, default=str, indent=4))
 
     ###########################################################
     def _load_state(self):
         """Write state dict to file"""
-        _file = f"{self._config.temp_dir}/state.json"
-        if not self._config.temp_dir or not os.path.exists(_file):
+        _file = f"{self._config.dir}/state.json"
+        if not os.path.exists(_file):
             return
 
         LOGGER.debug("%s Loading states from %s", LOG_PREFIX, _file)
@@ -365,13 +364,16 @@ class HomeAgent:
         """Send message to Home Assistant using connector"""
         if not self._ha_connected:
             LOGGER.errror("%s Unable to send messge. HA disconnected")
-            return
+            return False
 
         # LOGGER.debug("%s message: %s", LOG_PREFIX, _data.get(TOPIC))
         _topic = _data.get(TOPIC)
         _payload = _data.get(PAYLOAD)
-        if _topic is not None and _payload is not None:
-            self._connector.publish(_topic, _payload)
+        if _topic is None or _payload is None:
+            LOGGER.error("%s payload or topic missing", LOG_PREFIX)
+            return False
+
+        return self._connector.publish(_topic, _payload)
 
     ###########################################################
     def message_receive(self, _data):
@@ -428,12 +430,13 @@ class HomeAgent:
     def _publish_online(self, _state="online"):
         """Publish online status"""
 
-        self.message_send(
+        if not self.message_send(
             {
                 TOPIC: f"{self._config.device.topic}/status",
                 PAYLOAD: _state,
             }
-        )
+        ):
+            self._ha_connected = False
 
     ###########################################################
     def _publish_device(self):
@@ -526,9 +529,9 @@ class HomeAgent:
             _name = sensor.title().replace("_", " ")
             _data = setup_sensor(self._config, _name)
 
-            self._message_event.clear()
+            self._connected_event.clear()
             self.message_send(_data)
-            self._message_event.wait(1)
+            self._connected_event.wait(1)
 
             _data[PAYLOAD].update(
                 {"name": _name, "availability_topic": self._config.device.availability}

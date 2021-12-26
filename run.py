@@ -2,12 +2,14 @@
 """Run the HomeAgent as a service"""
 
 import sys
+import threading
 import traceback
 import logging
 
 
 from utilities.log import LOGGER
 from utilities.scheduler import Scheduler
+from utilities.states import ThreadSafeDict
 from config import APP_NAME, Config, load_config
 from agent_args import parse_args
 from agent import LOG_PREFIX, HomeAgent
@@ -19,10 +21,13 @@ def run_service(_config, _sensors=None):
     """Run Home Agent Service"""
     LOGGER.info("%s is starting", LOG_PREFIX)
 
-    state = {}
-    agent = HomeAgent(_config, state, _sensors)
-    
-    sched = Scheduler(state)
+    state = ThreadSafeDict()
+    running = threading.Event()
+    running.set()
+
+    sched = Scheduler(state, running)
+    agent = HomeAgent(_config, running, _sensors)
+
     sched.run(agent.start)
     sched.queue(agent.metrics, 10)
     sched.queue(agent.events, 10)
@@ -36,8 +41,10 @@ def run_service(_config, _sensors=None):
 
     LOGGER.info("%s Stopping", LOG_PREFIX)
     agent.stop()
+    running.clear()
 
     LOGGER.info("%s has stopped", LOG_PREFIX)
+
 
 #########################################
 def main():
@@ -65,6 +72,7 @@ def main():
         LOGGER.error(traceback.format_exc())
 
     LOGGER.info("Quit %s", APP_NAME)
+
 
 #########################################
 if __name__ == "__main__":
