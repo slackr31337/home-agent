@@ -25,7 +25,7 @@ class AgentModule:
     def notify(self, data):
         title = data.get("title", "HomeAgent Notification")
         message = data.get("message", "")
-        timeout = int(data.get("timeout", 600))
+        timeout = int(data.get("timeout", 1200))
         plyer.notification.notify(
             app_name="Home Agent",
             title=title,
