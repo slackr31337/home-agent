@@ -125,7 +125,7 @@ class HomeAgent:
         LOGGER.info(
             "%s Connector is connected: %s", LOG_PREFIX, self._connector.connected()
         )
-        self._ha_connected = True
+        self._ha_connected = self._connector.connected()
 
     ###########################################################
     def _load_modules(self):
