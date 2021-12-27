@@ -20,7 +20,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pylint unittest
+        pip install pylint
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Pylint
       run: |
@@ -29,3 +29,4 @@ jobs:
     - name: UnitTest
       run: |
         python -m unittest discover
+
