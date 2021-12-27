@@ -49,6 +49,7 @@ class Connector(mqtt.Client):
         self._running = running
         self._connected = False
         self._callback = None
+        self._tries = 0
         self._subscribe = []
 
         self._host = config.mqtt.host
@@ -84,11 +85,25 @@ class Connector(mqtt.Client):
 
     ##########################################
     def mqtt_log(self, mqttc, obj, level, string):
-        LOGGER.debug("[MQTT] %s", string)
+        LOGGER.debug("%s %s", string)
 
     ##########################################
     def connect(self):
-        LOGGER.info("[MQTT] connecting to %s:%s", self._host, self._port)
+        if not self._running.is_set():
+            LOGGER.error("%s Running is not set", LOG_PREFIX)
+            return
+        LOGGER.info(
+            "%s [%s] connecting to %s:%s",
+            LOG_PREFIX,
+            self._tries,
+            self._host,
+            self._port,
+        )
+        self._tries += 1
+        if self._tries > 10:
+            LOGGER.error("%s Failed to connect to MQTT broker", LOG_PREFIX)
+            raise Exception("Failed to connect")
+
         self._mqttc.connect(host=self._host, port=self._port, keepalive=60)
 
     ##########################################
@@ -97,20 +112,21 @@ class Connector(mqtt.Client):
 
     ##########################################
     def start(self):
-        LOGGER.info("[MQTT] Starting message loop")
-
+        LOGGER.info("%s Starting message loop", LOG_PREFIX)
+        self._tries = 0
         if not self._connected:
+            LOGGER.info("%s Connecting", LOG_PREFIX)
             self.connect()
 
         for _topic in self._subscribe:
-            LOGGER.info("[MQTT] Subscribing to %s", _topic)
+            LOGGER.info("%s Subscribing to %s", LOG_PREFIX, _topic)
             self._mqttc.subscribe(_topic, 0)
 
-        return self._mqttc.loop_start()
+        self._mqttc.loop_start()
 
     ##########################################
     def stop(self):
-        LOGGER.info("[MQTT] Stopping message loop")
+        LOGGER.info("%s Stopping message loop")
         self._mqttc.loop_stop()
         self._mqttc.disconnect()
 
@@ -119,25 +135,28 @@ class Connector(mqtt.Client):
         """MQTT broker connect event"""
         if rc == 0:
             self._connected = True
-            LOGGER.info("[MQTT] Connected mqtt://%s:%s", self._host, self._port)
+            LOGGER.info("%s Connected mqtt://%s:%s", LOG_PREFIX, self._host, self._port)
             self._connected_event.set()
         else:
             self._connected = False
             self._connected_event.clear()
-            LOGGER.error("[MQTT] Connection Failed. %s", MQTT_CONN_CODES.get(rc))
+            LOGGER.error(
+                "%s Connection Failed. %s", LOG_PREFIX, MQTT_CONN_CODES.get(rc)
+            )
 
     ##########################################
     def mqtt_on_disconnect(self, mqttc, obj, rc):
         """MQTT broker was disconnected"""
-        LOGGER.error("[MQTT] Disconnected. rc=%s %s", rc, MQTT_CONN_CODES.get(rc))
+        LOGGER.error(
+            "%s Disconnected. rc=%s %s", LOG_PREFIX, rc, MQTT_CONN_CODES.get(rc)
+        )
         self._connected = False
         self._connected_event.clear()
-        if self._running.is_set():
-            self.connect()
+        self.connect()
 
     ##########################################
     def mqtt_on_message(self, mqttc, obj, msg):
-        LOGGER.debug("[MQTT] %s payload: %s", msg.topic, msg.payload)
+        LOGGER.debug("%s %s payload: %s", LOG_PREFIX, msg.topic, msg.payload)
         self._connected_event.set()
         if self._callback is not None:
             payload = str(msg.payload.decode("utf-8"))
@@ -146,7 +165,9 @@ class Connector(mqtt.Client):
                     payload = json.loads(payload)
 
                 except json.JSONDecodeError as err:
-                    LOGGER.error("Failed to decode JSON payload. %s", err)
+                    LOGGER.error(
+                        "%s Failed to decode JSON payload. %s", LOG_PREFIX, err
+                    )
                     LOGGER.debug(payload)
                     return
 
@@ -161,7 +182,8 @@ class Connector(mqtt.Client):
 
         else:
             LOGGER.error(
-                "[MQTT] on_message callback is None. Set with obj.message_callback()"
+                "%s on_message callback is None. Set with obj.message_callback()",
+                LOG_PREFIX,
             )
 
     ##########################################
@@ -176,7 +198,8 @@ class Connector(mqtt.Client):
     ##########################################
     def mqtt_on_subscribe(self, mqttc, obj, mid, granted_qos):
         LOGGER.debug(
-            "[MQTT] Subscribed to %s %s qos[{%s]",
+            "%s Subscribed to %s %s qos[{%s]",
+            LOG_PREFIX,
             self._subscribe,
             mid,
             granted_qos[0],
@@ -190,6 +213,9 @@ class Connector(mqtt.Client):
 
     ##########################################
     def publish(self, _topic, payload, qos=1, retain=False):
+        if not self._running.is_set():
+            return False
+
         if not self._connected:
             self.connect()
 
