@@ -121,7 +121,7 @@ ATTRIB_MAP = {
     "device_tracker": {
         "source_type": "router",
         "hostname": HOSTNAME,
-        "json_attributes_topic": "~/state",
+        "topic": "~/state",
         "json_attributes_topic": "~/attrib",
     },
     "device_automation": {
@@ -205,14 +205,17 @@ class Config:
 
     #########################################
     def keys(self):
+        """Return dictionary keys"""
         return self.__dict.keys()
 
     #########################################
     def items(self):
+        """Return dictionary items"""
         return self.__dict.items()
 
     #########################################
     def update(self, items):
+        """Update dictionary"""
         return self.__dict.update(items)
 
     #########################################
@@ -227,10 +230,12 @@ class Config:
 
     #########################################
     def __setitem__(self, name, value):
+        """Dictionary set item method"""
         self.__dict[name] = value
 
     #########################################
     def __delitem__(self, name):
+        """Dictionary del item method"""
         del self.__dict[name]
 
     #########################################
@@ -240,16 +245,23 @@ class Config:
 
     #########################################
     def __setattr__(self, name, value):
+        """Dictionary set attribute method"""
         self[name] = value
 
     #########################################
     def __delattr__(self, name):
+        """Dictionary del attribute method"""
         del self[name]
 
     #########################################
     def __repr__(self):
-        return "%s(%r)" % (type(self).__name__, self.__dict)
+        """Dictionary method"""
+        return "%s(%r)" % (
+            type(self).__name__,
+            self.__dict,
+        )  # pylint: disable=consider-using-f-string
 
     #########################################
     def __str__(self):
+        """Dictionary method"""
         return str(self.__dict)

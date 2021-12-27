@@ -25,12 +25,13 @@ from const import (
 
 LOG_PREFIX = "[HomeAgent]"
 ###############################################################
-class HomeAgent:
+class HomeAgent:  # pylint:disable=too-many-instance-attributes
     """Class to collect and report endpoint data"""
 
     ###########################################################
     def __init__(self, config, running, sensors=None):
         """Init class"""
+        self.start_time = 0
         self._connected_event = threading.Event()
         self._config = config
         self._running = running
@@ -164,7 +165,7 @@ class HomeAgent:
                 self._setup_module_sensors(_class.slug)
                 self._setup_module_services(_class.slug)
 
-            except Exception as err:
+            except Exception as err:  # pylint: disable=broad-except
                 LOGGER.error("%s Failed to load module %s. %s", LOG_PREFIX, _name, err)
                 LOGGER.debug(traceback.format_exc())
 
@@ -195,7 +196,7 @@ class HomeAgent:
         """Send offline message and stop connector"""
 
         LOGGER.info("%s Stopping", LOG_PREFIX)
-        for module in self._modules:
+        for module in self._modules:  # pylint: disable=consider-using-dict-items
             if hasattr(self._modules[module], "stop"):
                 self._modules[module].stop()
 
@@ -295,7 +296,7 @@ class HomeAgent:
             return
 
         LOGGER.debug("%s Running modules", LOG_PREFIX)
-        for slug in self._modules:
+        for slug in self._modules:  # pylint: disable=consider-using-dict-items
             _sensors = self._modules[slug].sensors
             LOGGER.debug("%s module %s sensors %s", LOG_PREFIX, slug, _sensors)
             for _sensor in _sensors:
@@ -423,7 +424,7 @@ class HomeAgent:
                 self._services[command](json.loads(payload))
             except json.JSONDecodeError as err:
                 LOGGER.error("%s Failed to decode command payload. %s", LOG_PREFIX, err)
-            except Exception as err:
+            except Exception as err:  # pylint: disable=broad-except
                 LOGGER.error("%s Module command error. %s", LOG_PREFIX, err)
 
     ###########################################################
@@ -475,7 +476,11 @@ class HomeAgent:
 
         for _service, items in tuple(_services.items()):
             LOGGER.info(
-                "%s Setup service %s for module %s", LOG_PREFIX, _service, _module
+                "%s Setup service %s for module %s (%s)",
+                LOG_PREFIX,
+                _service,
+                _module,
+                items,
             )
             self._services[_service] = getattr(self._modules[_module], _service)
             topic = f"{self._config.device.topic}/{_service}"
@@ -637,11 +642,11 @@ class HomeAgent:
 
             network = ipaddress.ip_network(_net)
             if network.version != 4:
-                ip = self.states["ip6_address"]
+                ip_str = self.states["ip6_address"]
             else:
-                ip = self.states["ip_address"]
+                ip_str = self.states["ip_address"]
 
-            addr = ipaddress.ip_address(ip)
+            addr = ipaddress.ip_address(ip_str)
             if addr in network:
                 LOGGER.debug(
                     "%s ip: %s net: %s location: %s", LOG_PREFIX, addr, network, _loc
