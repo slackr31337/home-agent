@@ -1,8 +1,6 @@
 """Home Agent event scheduler"""
 
 from collections import deque
-import logging
-import io
 import time
 import heapq
 import signal
