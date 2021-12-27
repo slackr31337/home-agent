@@ -3,12 +3,14 @@
 import plyer
 
 ################################################################
-class agent_module:
+class AgentModule:
 
     name = "Notify module"
     slug = "notify"
     platform = ["linux"]
-    sensors = {}
+    sensors = []
+    attribs = {}
+    sensor_class = {}
     services = {"notify": ["title", "message"]}
 
     ###############################################################

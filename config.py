@@ -2,32 +2,27 @@
 
 import os
 import platform
+import tempfile
+import yaml
 
 
-FRIENDLY_NAME = "Rob's Laptop"
+from utilities.version import __version__
+
+CONFIG_FILE = "config.yaml"
+TMP_DIR = tempfile.tempdir
 HOSTNAME = str(platform.uname().node).lower()
 PLATFORM = str(platform.system()).lower()
 
-EVENT_LOOP_DELTA = 300
-METRICS_DELTA = 30
+DISCOVER_PREFIX = "homeassistant"
+DEVICE_PREFIX = "devices"
+TOPICS = ["command", "event"]
 
-API_URL = os.environ.get("API_URL", "http://homeassistant.local")
-API_TOKEN = os.environ.get("API_TOKEN", "Long-Lived Access Token")
+DEVICE_TOPIC = f"{DEVICE_PREFIX}/{HOSTNAME}"
+DEVICE_STATUS = f"{DEVICE_TOPIC}/status"
 
-MQTT_USER = os.environ.get("MQTT_USER", "")
-MQTT_PASS = os.environ.get("MQTT_PASS", "")
-MQTT_HOST = os.environ.get("MQTT_HOST", "127.0.0.1")
-MQTT_PORT = int(os.environ.get("MQTT_PORT", 1883))
-
-DEFAULT_CONNECTOR = os.environ.get("DEFAULT_CONNECTOR", "mqtt")
-
-HOME_PREFIX = "10.30.0."
-WORK_PREFIX = "192.168.16."
-
-IP_LOCATION_MAP = {
-    HOME_PREFIX: "home",
-    WORK_PREFIX: "I-Evolve",
-}
+SUBS = [f"{DISCOVER_PREFIX}/status"]
+for topic in TOPICS:
+    SUBS.append(f"{DEVICE_TOPIC}/{topic}")
 
 PUBLISH_SENSORS = {
     "ip_address": {},
@@ -45,29 +40,57 @@ PUBLISH_SENSORS = {
     "memory_percent": {},
     "battery_percent": {},
     "battery_plugged_in": {},
+    "users": {},
 }
 
+PUBLISH_SENSOR_PREFIX = [
+    "disk_",
+    "network_enp",
+    "network_eth",
+    "network_wl",
+    "temp",
+    "coretemp",
+    "k10temp_",
+    "w83795g_temp",
+    "w83795g_fan",
+    "acpitz",
+]
 
-MQTT_HA_PREFIX = "homeassistant"
-MQTT_DEVICE_PREFIX = "devices"
-MQTT_TOPICS = ["command", "event"]
-
-MQTT_SUBS = ["homeassistant/status"]
-for topic in MQTT_TOPICS:
-    MQTT_SUBS.append(f"{MQTT_DEVICE_PREFIX}/{HOSTNAME}/{topic}")
-
-DEVICE_AVAILABILITY = {
-    "availability": {
-        "topic": f"{MQTT_DEVICE_PREFIX}/{HOSTNAME}/availability",
-    }
+ICON_MAP = {
+    "ip_address": "ip-network",
+    "ip6_address": "ip-network",
+    "load": "format-line-weight",
+    "processor_percent": "cpu-64-bit",
+    "memory_percent": "chip",
+    "users": "account",
 }
 
-TYPE_MAP = {
-    "device_automation": "device_automation",
-    "battery_plugged_in": "binary_sensor",
+ICON_PREFIX_MAP = {
+    "memory_": "chip",
+    "disk_": "harddisk",
+    "network_": "network",
+    "temp_": "thermometer-lines",
+    "coretemp": "thermometer-lines",
+    "fan": "fan",
+    "acpitz_": "thermometer-lines",
 }
 
-SENSOR_MAP = {
+CLASS_TEMP = {"state_class": "measurement", "unit_of_measurement": "C"}
+CLASS_PERCENT = {"state_class": "measurement", "unit_of_measurement": "%"}
+CLASS_RPM = {"state_class": "measurement", "unit_of_measurement": "RPM"}
+
+PREFIX_CLASS_MAP = {
+    "disk_": CLASS_PERCENT,
+    "network_": {},
+    "temp_": CLASS_TEMP,
+    "coretemp": CLASS_TEMP,
+    "k10temp": CLASS_TEMP,
+    "w83795g_temp": CLASS_TEMP,
+    "w83795g_fan": CLASS_RPM,
+    "acpitz_": CLASS_TEMP,
+}
+
+CLASS_MAP = {
     "load": {
         "state_class": "measurement",
         "unit_of_measurement": "load",
@@ -78,15 +101,10 @@ SENSOR_MAP = {
         "state_class": "measurement",
         "unit_of_measurement": "%",
     },
+    "users": {"state_class": "measurement", "unit_of_measurement": "users"},
     "battery_plugged_in": {"device_class": "plug"},
-    "processor_percent": {"state_class": "measurement", "unit_of_measurement": "%"},
-    "memory_percent": {"state_class": "measurement", "unit_of_measurement": "%"},
-}
-
-SENSOR_PREFIX_MAP = {
-    "k10temp_": {"state_class": "measurement", "unit_of_measurement": "C"},
-    "w83795g_temp": {"state_class": "measurement", "unit_of_measurement": "C"},
-    "w83795g_fan": {"state_class": "measurement", "unit_of_measurement": "RPM"},
+    "processor_percent": CLASS_PERCENT,
+    "memory_percent": CLASS_PERCENT,
 }
 
 ATTRIB_MAP = {
@@ -103,14 +121,14 @@ ATTRIB_MAP = {
     "device_tracker": {
         "source_type": "router",
         "hostname": HOSTNAME,
-        "json_attributes_topic": "~/state",
+        "topic": "~/state",
         "json_attributes_topic": "~/attrib",
     },
     "device_automation": {
         "automation_type": "trigger",
         "type": "action",
         "subtype": "turn_on",
-        "topic": f"{MQTT_DEVICE_PREFIX}/{HOSTNAME}/trigger_action",
+        "topic": f"{DEVICE_TOPIC}/rigger_action",
     },
     "switch": {
         "topic": "~/state",
@@ -120,9 +138,130 @@ ATTRIB_MAP = {
     },
 }
 
+ONLINE_ATTRIB = {
+    "device_class": "connectivity",
+    "icon": "mdi:desktop-classic",
+    "expire_after": 300,
+    "payload_on": "online",
+    "payload_off": "offline",
+    "json_attributes_topic": "~/attrib",
+}
 
-if PLATFORM == "linux":
-    TMP_DIR = "/tmp"
+TYPE_MAP = {
+    "device_automation": "device_automation",
+    "battery_plugged_in": "binary_sensor",
+}
 
-elif PLATFORM == "windows":
-    TMP_DIR = "c:\windows\temp"
+APP_NAME = "Home Agent endpoint"
+#########################################
+def load_config(_file=CONFIG_FILE):
+    """Load configuration from yaml"""
+
+    with open(_file, "r", encoding="utf-8") as conf:
+        _config = yaml.safe_load(conf)
+
+    params = {
+        "app_name": APP_NAME,
+        "app_ver": f"{APP_NAME} {__version__}",
+        "dir": os.path.dirname(__file__),
+        "temp_dir": TMP_DIR,
+        "device": {
+            "topic": DEVICE_TOPIC,
+            "availability": DEVICE_STATUS,
+            "identifiers": None,
+            "connections": None,
+        },
+        "subscriptions": SUBS,
+        "prefix": {"discover": DISCOVER_PREFIX, "device": DEVICE_PREFIX},
+        "sensors": {
+            "prefix": PUBLISH_SENSOR_PREFIX,
+            "prefix_class": PREFIX_CLASS_MAP,
+            "sensor_class": CLASS_MAP,
+            "type": TYPE_MAP,
+            "attrib": ATTRIB_MAP,
+            "publish": PUBLISH_SENSORS,
+            "icons": ICON_MAP,
+            "prefix_icons": ICON_PREFIX_MAP,
+        },
+    }
+    params.update(_config)
+    params["hostname"] = HOSTNAME
+    params["platform"] = PLATFORM
+    return params
+
+
+#########################################
+class Config:
+    """Configuration class"""
+
+    #########################################
+    def __init__(self, _dict=None):
+        object.__setattr__(self, "_Config__dict", _dict)
+
+    #########################################
+    def get(self, name, default=None):
+        """Dictionary get method"""
+        return self.__dict.get(name, default)
+
+    #########################################
+    def keys(self):
+        """Return dictionary keys"""
+        return self.__dict.keys()
+
+    #########################################
+    def items(self):
+        """Return dictionary items"""
+        return self.__dict.items()
+
+    #########################################
+    def update(self, items):
+        """Update dictionary"""
+        return self.__dict.update(items)
+
+    #########################################
+    def __getitem__(self, name):
+        """Dictionary-like access / updates"""
+        if name not in self.__dict:
+            return None
+        value = self.__dict[name]
+        if isinstance(value, dict):
+            value = Config(value)
+        return value
+
+    #########################################
+    def __setitem__(self, name, value):
+        """Dictionary set item method"""
+        self.__dict[name] = value
+
+    #########################################
+    def __delitem__(self, name):
+        """Dictionary del item method"""
+        del self.__dict[name]
+
+    #########################################
+    def __getattr__(self, name):
+        """Object-like access / updates"""
+        return self[name]
+
+    #########################################
+    def __setattr__(self, name, value):
+        """Dictionary set attribute method"""
+        self[name] = value
+
+    #########################################
+    def __delattr__(self, name):
+        """Dictionary del attribute method"""
+        del self[name]
+
+    #########################################
+    def __repr__(self):
+        """Dictionary method"""
+        return "%s(%r)" % (  # pylint: disable=consider-using-f-string
+            type(self).__name__,
+            self.__dict,
+        )
+
+    #########################################
+    def __str__(self):
+        """Dictionary method"""
+        return str(self.__dict)

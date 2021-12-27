@@ -1,0 +1,36 @@
+# Home Agent configuration variables
+
+connector: mqtt
+
+# MQTT host, port and auth
+mqtt:
+  host: mqtt.local
+  port: 1883
+  user: "mqtt"
+  password: "secret_password"
+
+# Home Assistant host and token
+api:
+  host: homeassistant.local or host.ui.nabu.casa
+  token: "LongLivedAccessToken"
+
+# Scheduler intervals for updating states
+intervals:  
+  metrics: 15   # Send sensor states
+  events: 60    # Check connected and update device
+  modules: 30   # Module sensor state updates
+  ping: 300     # Connector ping check
+
+# Device name in Home Assistant
+host:
+  friendly_name: "My Laptop"
+
+# Map location network to key
+device_tracker:
+  home: "192.168.1.0/24"
+  work: "192.168.2.0/24"
+
+# Map location key to name
+locations:
+  home: "home"
+  work: "My Work"

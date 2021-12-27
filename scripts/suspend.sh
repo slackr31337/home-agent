@@ -1,4 +1,5 @@
 #!/bin/bash
+# /usr/lib/systemd/system-sleep/suspend.sh
 
 HOST=$(hostname)
 MQTT=$(which mosquitto_pub)
@@ -10,10 +11,10 @@ publish() {
 }
 
 if [ "${1}" == "pre" ]; then
-	publish "devices/${HOSTNAME}/availability" "offline"
+	publish "devices/${HOSTNAME}/status" "offline"
 
 elif [ "${1}" == "post" ]; then
-	publish "devices/${HOSTNAME}/availability" "online"
+	publish "devices/${HOSTNAME}/status" "online"
 
 fi
 

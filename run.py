@@ -2,47 +2,56 @@
 """Run the HomeAgent as a service"""
 
 import sys
+import threading
 import traceback
 import logging
 
 
-from _version import __version__
-from log import LOGGER
+from utilities.log import LOGGER
+from utilities.scheduler import Scheduler
+from utilities.states import ThreadSafeDict
+from config import APP_NAME, Config, load_config
 from agent_args import parse_args
-from agent import HomeAgent
-from scheduler import Scheduler
-from const import APP_NAME
+from agent import LOG_PREFIX, HomeAgent
 
 
-APP_VER = f"{APP_NAME} {__version__}"
-########################################################
-def run_service(_args, _sensors=None):
+LOG_PREFIX = "[HomeAgent]"
+#########################################
+def run_service(_config, _sensors=None):
     """Run Home Agent Service"""
-    LOGGER.info("[HomeAgent] is starting")
+    LOGGER.info("%s is starting", LOG_PREFIX)
 
-    agent = HomeAgent(_args, _sensors)
-    sched = Scheduler()
+    state = ThreadSafeDict()
+    running = threading.Event()
+    running.set()
 
-    sched.run(
-        agent.start,
-    )
+    sched = Scheduler(state, running)
+    agent = HomeAgent(_config, running, _sensors)
 
-    sched.queue(_args.metrics_interval, agent.metrics, True)
-    sched.queue(_args.events_interval, agent.events, True)
-    sched.queue(_args.modules_interval, agent.modules, True)
+    sched.run(agent.start)
+    sched.queue(agent.metrics, 10)
+    sched.queue(agent.events, 10)
+
+    sched.queue(agent.metrics, _config.intervals.metrics, True)
+    sched.queue(agent.events, _config.intervals.events, True)
+    sched.queue(agent.modules, _config.intervals.modules, True)
+    sched.queue(agent.conn_ping, _config.intervals.ping, True)
 
     sched.start()
 
+    LOGGER.info("%s Stopping", LOG_PREFIX)
     agent.stop()
+    running.clear()
 
-    LOGGER.info("[HomeAgent] has stopped")
+    LOGGER.info("%s has stopped", LOG_PREFIX)
 
 
 #########################################
-if __name__ == "__main__":
+def main():
+    """Main run function"""
     LOGGER.info("Starting %s", APP_NAME)
+    _args = parse_args(sys.argv[1:], APP_NAME)
 
-    _args = parse_args(sys.argv[1:])
     if _args.debug:
         level = logging.getLevelName("DEBUG")
         LOGGER.setLevel(level)
@@ -52,12 +61,19 @@ if __name__ == "__main__":
         LOGGER.error("Must use -s argument to run as a service")
         sys.exit(2)
 
+    LOGGER.info("%s Loading config file: %s", LOG_PREFIX, _args.config)
+    _config = Config(load_config(_args.config))
+
     try:
-        run_service(_args)
+        run_service(_config)
 
     except Exception as err:  # pylint: disable=broad-except
         LOGGER.error(err)
-        MSG = traceback.format_exc()
-        LOGGER.error(MSG)
+        LOGGER.error(traceback.format_exc())
 
-    LOGGER.info("Finished %s", APP_NAME)
+    LOGGER.info("Quit %s", APP_NAME)
+
+
+#########################################
+if __name__ == "__main__":
+    main()

@@ -3,16 +3,16 @@
 import os
 
 
-path = os.path.dirname(__file__)
+path = os.path.dirname(os.path.dirname(__file__))
 VERSIONFILE = f"{path}/VERSION"
 with open(VERSIONFILE, "rt", encoding="utf-8") as file1:
     VERSION = file1.read()
 
-mo = VERSION.split(".")
-if len(mo) > 2:
-    VER_MAJOR = int(mo[0])
-    VER_MINOR = int(mo[1])
-    VER_PATCH = "".join(mo[2:]).rstrip()
+_ver = VERSION.split(".")
+if _ver is not None and len(_ver) > 2:
+    VER_MAJOR = int(_ver[0])
+    VER_MINOR = int(_ver[1])
+    VER_PATCH = "".join(_ver[2:]).rstrip()
     API_VERSION = VER_MAJOR
     __version__ = f"{VER_MAJOR}.{VER_MINOR}.{VER_PATCH}"
 

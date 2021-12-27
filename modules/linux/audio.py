@@ -5,20 +5,23 @@ dependenicy libportaudio2
 """
 
 ################################################################
-class agent_module:
+class AgentModule:
 
     name = "Portaudio module"
-    slug = "portaudio"
+    slug = "audio"
     platform = ["linux"]
-    sensors = {}
+    sensors = []
+    attribs = {}
     sensors_set = []
     sensor_types = {}
     sensor_attribs = {}
+    sensor_class = {}
     services = {}
 
     ###############################################################
     def __init__(self):
         self.available = False
+        self._state = {}
 
     ###############################################################
     def _setup(self):

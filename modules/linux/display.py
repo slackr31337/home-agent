@@ -1,14 +1,16 @@
 """Module for polling display metrics"""
 
+import tempfile
 import ctypes
 import ctypes.util
 from mss import mss
 
 
-from log import LOGGER
+from utilities.log import LOGGER
 from config import HOSTNAME
 
-LOG_PREFIX = "[x11_display]"
+LOG_PREFIX = "[display]"
+STATE_MAP = {True: "ON", False: "OFF"}
 ################################################################
 class XScreenSaverInfo(ctypes.Structure):
     _fields_ = [
@@ -22,13 +24,14 @@ class XScreenSaverInfo(ctypes.Structure):
 
 
 ################################################################
-class agent_module:
+class AgentModule:
 
     name = "X11 display module"
-    slug = "x11_display"
+    slug = "display"
     platform = ["linux"]
     services = {}
     sensors = ["display_idle", "screen_capture", "disable_capture", "display_locked"]
+    attribs = {}
     sensors_set = ["disable_capture", "display_locked"]
     sensor_types = {
         "display_idle": "binary_sensor",
@@ -48,19 +51,24 @@ class agent_module:
             "command_topic": "~/set",
         },
     }
+    sensor_class = {}
+    sensor_icons = {
+        "display_idle": "monitor",
+        "disable_capture": "monitor-eye",
+        "display_locked": "monitor-lock",
+    }
 
     ###############################################################
-    def __init__(self, _timeout=300):
+    def __init__(self, timeout=300):
         LOGGER.debug("%s init module", LOG_PREFIX)
-        self._display_idle = None
-        self._disable_capture = False
-        self._display_locked = False
         self._available = False
-        self._timeout = _timeout
-        self._idle_seconds = 0
-        self._set = {
-            "disable_capture": self._disable_capture,
-            "display_locked": self._display_locked,
+        self._temp_file = f"{tempfile.gettempdir()}/{HOSTNAME}_screen_capture.png"
+        self._state = {
+            "idle_seconds": 0,
+            "timeout": timeout,
+            "display_idle": False,
+            "display_locked": False,
+            "disable_capture": False,
         }
         self._setup()
 
@@ -127,23 +135,21 @@ class agent_module:
         LOGGER.debug("%s get: %s", LOG_PREFIX, _method)
         if hasattr(self, _method):
             _func = getattr(self, _method)
-            LOGGER.debug("%s function: %s", LOG_PREFIX, _func.__name__)
+            LOGGER.debug("%s module function: %s()", LOG_PREFIX, _func.__name__)
             return _func()
 
-        _obj = self._set.get(_method)
-        if _obj is not None:
-            _value = "ON" if _obj else "OFF"
-            LOGGER.debug("%s sensor %s %s", LOG_PREFIX, _method, _value)
-            return _value
-
-        LOGGER.error("%s Failed to get %s", LOG_PREFIX, _method)
+        _value = self._state.get(_method)
+        if _value in STATE_MAP:
+            _value = STATE_MAP.get(_value)
+        LOGGER.debug("%s module sensor %s %s", LOG_PREFIX, _method, _value)
+        return _value, None
 
     ###############################################################
     def set(self, _item, _value):
         """Set value for given item. HA switches, etc"""
         LOGGER.debug("%s set: %s value: %s", LOG_PREFIX, _item, _value)
-        if _item in self._set:
-            self._set[_item] = bool(_value == "ON")
+        if _item in self._state:
+            self._state[_item] = bool(_value == "ON")
         return _value
 
     ###############################################################
@@ -155,39 +161,38 @@ class agent_module:
             )
             == 0
         ):
-            return None
+            return None, None
 
-        self._idle_seconds = int(self._xss_info_p.contents.idle) / 1000
+        self._state["idle_seconds"] = int(self._xss_info_p.contents.idle) / 1000
 
-        if self._idle_seconds > self._timeout:
-            self._display_idle = True
+        if self._state["idle_seconds"] > self._state["timeout"]:
+            self._state["display_idle"] = True
         else:
-            self._display_idle = False
+            self._state["display_idle"] = False
 
-        return self._display_idle
-
-    ##############################################################
-    def display_locked(self, _value=None):
-        """Home Assistant switch"""
-        if _value is not None:
-            self._display_locked = bool(_value == "ON")
-
-        return self._display_locked
+        return self._state["display_idle"], {
+            "idle": self._state["idle_seconds"],
+            "timeout": self._state["timeout"],
+        }
 
     ###############################################################
     def screen_capture(self):
         """Home Assistant camera with screenshot"""
-        if self._display_idle or self._disable_capture:
-            return None
+        if self._state["display_idle"] or self._state["disable_capture"]:
+            LOGGER.debug("%s capture_disabled", LOG_PREFIX)
+            return None, None
 
         with mss() as sct:
+            LOGGER.debug(
+                "%s writing screen shot to file %s", LOG_PREFIX, self._temp_file
+            )
             filename = sct.shot(
                 mon=-1,
-                output=f"/tmp/{HOSTNAME}_screen_capture.png",
+                output=self._temp_file,
             )
 
         imagestring = None
         with open(filename, "rb") as _image:
             imagestring = _image.read()
 
-        return bytearray(imagestring)
+        return bytearray(imagestring), None

@@ -1,17 +1,24 @@
 """Class for MQTT messaging"""
+
 import ssl
 import json
 import time
+import platform
 import paho.mqtt.client as mqtt
 
 
-from log import LOGGER
+from utilities.log import LOGGER
 from const import TOPIC, PAYLOAD
 
-TLS_CA_PATH = "/etc/ssl/certs/"
-TLS_CA_CERT = "/etc/ssl/certs/ca-certificates.crt"
-TLS_CERT = "/etc/ssl/private/mqtt_client.crt"
-TLS_KEY = "/etc/ssl/private/mqtt_client.key"
+if platform.system() == "Linux":
+    TLS_CA_CERT = "/etc/ssl/certs/ca-certificates.crt"
+    TLS_CERT = "/etc/ssl/private/mqtt_client.crt"
+    TLS_KEY = "/etc/ssl/private/mqtt_client.key"
+
+else:
+    TLS_CA_CERT = None
+    TLS_CERT = ""
+    TLS_KEY = ""
 
 MQTT_CONN_CODES = {
     0: "Connected",
@@ -22,36 +29,40 @@ MQTT_CONN_CODES = {
     5: "Not authorized",
     6: "Unknown",
 }
-
-#########################################
-class connector(mqtt.Client):
+LOG_PREFIX = "[MQTT]"
+##########################################
+class Connector(mqtt.Client):
 
     name = "mqtt"
 
-    #########################################
+    ##########################################
     def __init__(
         self,
-        _args,
-        _connected,
+        config,
+        event,
+        running,
         clientid,
         **kwargs,
     ):
 
-        super(connector, self).__init__(clientid, **kwargs)
-        self._connected_event = _connected
-        self.disconnected = None
+        super(Connector, self).__init__(clientid, **kwargs)
+        self._connected_event = event
+        self._running = running
         self._connected = False
         self._callback = None
+        self._tries = 0
         self._subscribe = []
 
-        self._host = _args.mqtt_host
-        self._port = _args.mqtt_port
+        self._host = config.mqtt.host
+        self._port = config.mqtt.port
 
         if clientid is None:
-            clientid = f"mqtt_client_{int(time.time())}"
+            self._clientid = f"mqtt_client_{int(time.time())}"
+        else:
+            self._clientid = clientid
 
         self._mqttc = mqtt.Client(
-            client_id=clientid,
+            client_id=self._clientid,
             clean_session=True,
         )
 
@@ -64,41 +75,86 @@ class connector(mqtt.Client):
 
             self._mqttc.tls_insecure_set(True)
 
-        self._mqttc.username_pw_set(username=_args.mqtt_user, password=_args.mqtt_pass)
+        self._mqttc.username_pw_set(
+            username=config.mqtt.user, password=config.mqtt.password
+        )
+        self._mqttc.reconnect_delay_set(min_delay=1, max_delay=30)
         self._mqttc.on_connect = self.mqtt_on_connect
         self._mqttc.on_disconnect = self.mqtt_on_disconnect
-
-        # self._mqttc.on_log = self.mqtt_log
         self._mqttc.on_subscribe = self.mqtt_on_subscribe
         self._mqttc.on_message = self.mqtt_on_message
-        # self._mqttc.on_publish = self.mqtt_on_publish
 
-    #########################################
+    ##########################################
     def mqtt_log(self, mqttc, obj, level, string):
-        LOGGER.debug("[MQTT] %s", string)
+        LOGGER.debug("%s %s", string)
 
-    #########################################
+    ##########################################
+    def connect(self):
+        self._tries += 1
+        LOGGER.info(
+            "%s Connecting to %s:%s (attempt %s)",
+            LOG_PREFIX,
+            self._host,
+            self._port,
+            self._tries,
+        )
+        self._mqttc.connect(host=self._host, port=self._port, keepalive=60)
+
+    ##########################################
+    def connected(self):
+        return self._connected
+
+    ##########################################
+    def start(self):
+        LOGGER.info("%s Starting message loop", LOG_PREFIX)
+
+        self._tries = 0
+        self._connected_event.clear()
+        LOGGER.info("%s Attempting to connect to MQTT broker", LOG_PREFIX)
+        self.connect()
+        self._mqttc.loop_start()
+
+    ##########################################
+    def stop(self):
+        LOGGER.info("%s Stopping message loop", LOG_PREFIX)
+        self._mqttc.loop_stop()
+        self._mqttc.disconnect()
+
+    ##########################################
     def mqtt_on_connect(self, mqttc, userdata, flags, rc):
         """MQTT broker connect event"""
         if rc == 0:
             self._connected = True
-            LOGGER.info("[MQTT] Connected mqtt://%s:%s", self._host, self._port)
+            LOGGER.info("%s Connected mqtt://%s:%s", LOG_PREFIX, self._host, self._port)
+
+            for _topic in self._subscribe:
+                LOGGER.info("%s Subscribing to %s", LOG_PREFIX, _topic)
+                self._mqttc.subscribe(_topic, 0)
+
             self._connected_event.set()
         else:
             self._connected = False
             self._connected_event.clear()
-            LOGGER.error("[MQTT] Connection Failed. %s", MQTT_CONN_CODES.get(rc))
+            LOGGER.error(
+                "%s Connection Failed. %s", LOG_PREFIX, MQTT_CONN_CODES.get(rc)
+            )
 
-    #########################################
+    ##########################################
     def mqtt_on_disconnect(self, mqttc, obj, rc):
         """MQTT broker was disconnected"""
-        self._connected = False
-        self.disconnected = True, rc
-        self._connected_event.clear()
+        LOGGER.error(
+            "%s Disconnected. rc=%s %s", LOG_PREFIX, rc, MQTT_CONN_CODES.get(rc)
+        )
 
-    #########################################
+        self._connected = False
+        self._connected_event.clear()
+        if self._running.is_set():
+            self.connect()
+
+    ##########################################
     def mqtt_on_message(self, mqttc, obj, msg):
-        # LOGGER.debug("[MQTT] %s payload: %s", msg.topic, msg.payload)
+        LOGGER.debug("%s %s payload: %s", LOG_PREFIX, msg.topic, msg.payload)
+        self._connected_event.set()
         if self._callback is not None:
             payload = str(msg.payload.decode("utf-8"))
             if payload[0] == "}":
@@ -106,7 +162,9 @@ class connector(mqtt.Client):
                     payload = json.loads(payload)
 
                 except json.JSONDecodeError as err:
-                    LOGGER.error("Failed to decode JSON payload. %s", err)
+                    LOGGER.error(
+                        "%s Failed to decode JSON payload. %s", LOG_PREFIX, err
+                    )
                     LOGGER.debug(payload)
                     return
 
@@ -121,63 +179,63 @@ class connector(mqtt.Client):
 
         else:
             LOGGER.error(
-                "[MQTT] on_message callback is None. Set with obj.message_callback()"
+                "%s on_message callback is None. Set with obj.message_callback()",
+                LOG_PREFIX,
             )
 
-    #########################################
+    ##########################################
     def message_callback(self, callback):
         self._callback = callback
 
-    #########################################
+    ##########################################
+    def set_will(self, topic, payload):
+        """Set exit() will message"""
+        self._mqttc.will_set(topic, payload=payload, qos=0, retain=False)
+
+    ##########################################
     def mqtt_on_subscribe(self, mqttc, obj, mid, granted_qos):
         LOGGER.debug(
-            "[MQTT] Subscribed to %s %s qos[{%s]",
+            "%s Subscribed to %s %s qos[{%s]",
+            LOG_PREFIX,
             self._subscribe,
             mid,
             granted_qos[0],
         )
 
-    #########################################
+    ##########################################
     def subscribe_to(self, _topic=None):
         self._subscribe.append(_topic)
         if self.connected:
             self._mqttc.subscribe(_topic, 0)
 
-    #########################################
-    def connect(self):
-        LOGGER.info("[MQTT] connecting to %s:%s", self._host, self._port)
-        self._mqttc.connect(self._host, self._port, 60)
+    ##########################################
+    def publish(self, _topic, payload, qos=1, retain=False):
+        if not self._running.is_set():
+            return False
 
-    #########################################
-    def connected(self):
-        return self._connected
-
-    #########################################
-    def start(self):
-        LOGGER.info("[MQTT] Starting message loop")
-
-        if not self._connected:
-            self.connect()
-
-        for _topic in self._subscribe:
-            LOGGER.info("[MQTT] Subscribing to %s", _topic)
-            self._mqttc.subscribe(_topic, 0)
-
-        return self._mqttc.loop_start()
-
-    #########################################
-    def stop(self):
-        LOGGER.info("[MQTT] Stopping message loop")
-        self._mqttc.loop_stop()
-        self._mqttc.disconnect()
-
-    #########################################
-    def publish(self, topic, payload, qos=1, retain=False):
         if not self._connected:
             self.connect()
 
         if isinstance(payload, dict):
             payload = json.dumps(payload, default=str)
-        return self._mqttc.publish(topic, payload=payload, qos=qos, retain=retain)
 
-    #########################################
+        LOGGER.debug("%s publish: %s", LOG_PREFIX, _topic)
+
+        try:
+            result = self._mqttc.publish(
+                _topic, payload=payload, qos=qos, retain=retain
+            )
+            result.wait_for_publish(timeout=5)
+            if result.is_published():
+                self._connected_event.set()
+
+        except mqtt.WebsocketConnectionError as err:
+            LOGGER.error("%s Publish failed. %s", LOG_PREFIX, err)
+            return False
+
+        return True
+
+    ##########################################
+    def ping(self, topic):
+        """Send ping message"""
+        self.publish(topic, "ping")
