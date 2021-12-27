@@ -256,10 +256,10 @@ class Config:
     #########################################
     def __repr__(self):
         """Dictionary method"""
-        return "%s(%r)" % (
+        return "%s(%r)" % (  # pylint: disable=consider-using-f-string
             type(self).__name__,
             self.__dict,
-        )  # pylint: disable=consider-using-f-string
+        )
 
     #########################################
     def __str__(self):

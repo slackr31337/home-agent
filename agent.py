@@ -422,8 +422,11 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             LOGGER.info("%s cmd calling service %s()", LOG_PREFIX, command)
             try:
                 self._services[command](json.loads(payload))
+
             except json.JSONDecodeError as err:
                 LOGGER.error("%s Failed to decode command payload. %s", LOG_PREFIX, err)
+                LOGGER.error("%s payload: %s", LOG_PREFIX, payload)
+
             except Exception as err:  # pylint: disable=broad-except
                 LOGGER.error("%s Module command error. %s", LOG_PREFIX, err)
 
