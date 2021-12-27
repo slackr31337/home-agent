@@ -21,7 +21,6 @@ This is an endpoint agent for Windows and Linux for collecting metrics for Home-
   
   
   
-## OS Specific Modules:
 
   # Linux
   
