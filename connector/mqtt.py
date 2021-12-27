@@ -1,6 +1,5 @@
 """Class for MQTT messaging"""
 
-import sys
 import ssl
 import json
 import time
