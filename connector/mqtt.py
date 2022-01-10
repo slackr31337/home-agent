@@ -48,19 +48,40 @@ class Connector(mqtt.Client):
         super(Connector, self).__init__(clientid, **kwargs)
         self._connected_event = event
         self._running = running
+        self._config = config
         self._connected = False
         self._callback = None
         self._tries = 0
         self._subscribe = []
-
-        self._host = config.mqtt.host
-        self._port = config.mqtt.port
 
         if clientid is None:
             self._clientid = f"mqtt_client_{int(time.time())}"
         else:
             self._clientid = clientid
 
+        self.setup()
+
+    ##########################################
+    def start(self):
+        """Connect and start message loop"""
+        LOGGER.info("%s Starting message loop", LOG_PREFIX)
+
+        self._tries = 0
+        self._connected_event.clear()
+        LOGGER.info("%s Attempting to connect to MQTT broker", LOG_PREFIX)
+        self.connect()
+        self._mqttc.loop_start()
+
+    ##########################################
+    def stop(self):
+        """Stop message loop and disconnect"""
+        LOGGER.info("%s Stopping message loop", LOG_PREFIX)
+        self._mqttc.loop_stop()
+        self._mqttc.disconnect()
+
+    ##########################################
+    def setup(self):
+        """Setup MQTT client"""
         self._mqttc = mqtt.Client(
             client_id=self._clientid,
             clean_session=True,
@@ -76,7 +97,7 @@ class Connector(mqtt.Client):
             self._mqttc.tls_insecure_set(True)
 
         self._mqttc.username_pw_set(
-            username=config.mqtt.user, password=config.mqtt.password
+            username=self._config.mqtt.user, password=self._config.mqtt.password
         )
         self._mqttc.reconnect_delay_set(min_delay=1, max_delay=30)
         self._mqttc.on_connect = self.mqtt_on_connect
@@ -85,47 +106,39 @@ class Connector(mqtt.Client):
         self._mqttc.on_message = self.mqtt_on_message
 
     ##########################################
-    def mqtt_log(self, mqttc, obj, level, string):
-        LOGGER.debug("%s %s", string)
-
-    ##########################################
     def connect(self):
+        """Connect to MQTT broker"""
+        if not self._running.is_set():
+            return
+
         self._tries += 1
         LOGGER.info(
             "%s Connecting to %s:%s (attempt %s)",
             LOG_PREFIX,
-            self._host,
-            self._port,
+            self._config.mqtt.host,
+            self._config.mqtt.port,
             self._tries,
         )
-        self._mqttc.connect(host=self._host, port=self._port, keepalive=60)
+        self._mqttc.connect(
+            host=self._config.mqtt.host, port=self._config.mqtt.port, keepalive=60
+        )
 
     ##########################################
     def connected(self):
+        """Return bool for connection status"""
         return self._connected
-
-    ##########################################
-    def start(self):
-        LOGGER.info("%s Starting message loop", LOG_PREFIX)
-
-        self._tries = 0
-        self._connected_event.clear()
-        LOGGER.info("%s Attempting to connect to MQTT broker", LOG_PREFIX)
-        self.connect()
-        self._mqttc.loop_start()
-
-    ##########################################
-    def stop(self):
-        LOGGER.info("%s Stopping message loop", LOG_PREFIX)
-        self._mqttc.loop_stop()
-        self._mqttc.disconnect()
 
     ##########################################
     def mqtt_on_connect(self, mqttc, userdata, flags, rc):
         """MQTT broker connect event"""
         if rc == 0:
             self._connected = True
-            LOGGER.info("%s Connected mqtt://%s:%s", LOG_PREFIX, self._host, self._port)
+            LOGGER.info(
+                "%s Connected mqtt://%s:%s",
+                LOG_PREFIX,
+                self._config.mqtt.host,
+                self._config.mqtt.port,
+            )
 
             for _topic in self._subscribe:
                 LOGGER.info("%s Subscribing to %s", LOG_PREFIX, _topic)
@@ -148,11 +161,25 @@ class Connector(mqtt.Client):
 
         self._connected = False
         self._connected_event.clear()
-        if self._running.is_set():
-            self.connect()
+        if self._tries > 20:
+            LOGGER.error("%s Failed to re-connect. Exit")
+            self.stop()
+            self._running.clear()
+
+        elif self._tries > 15:
+            LOGGER.info("%s Attempting re-connect.")
+            self.stop()
+            self.setup()
+            self.start()
+
+    ##########################################
+    def mqtt_log(self, mqttc, obj, level, string):
+        """Log string from MQTT client"""
+        LOGGER.debug("%s %s", string)
 
     ##########################################
     def mqtt_on_message(self, mqttc, obj, msg):
+        """Call back function for recieved MQTT message"""
         LOGGER.debug("%s %s payload: %s", LOG_PREFIX, msg.topic, msg.payload)
         self._connected_event.set()
         if self._callback is not None:
@@ -185,6 +212,7 @@ class Connector(mqtt.Client):
 
     ##########################################
     def message_callback(self, callback):
+        """Set call back function for MQTT message"""
         self._callback = callback
 
     ##########################################
@@ -194,6 +222,7 @@ class Connector(mqtt.Client):
 
     ##########################################
     def mqtt_on_subscribe(self, mqttc, obj, mid, granted_qos):
+        """Call back function for subcribe to topic"""
         LOGGER.debug(
             "%s Subscribed to %s %s qos[{%s]",
             LOG_PREFIX,
@@ -204,12 +233,14 @@ class Connector(mqtt.Client):
 
     ##########################################
     def subscribe_to(self, _topic=None):
+        """Add topic to subscribe"""
         self._subscribe.append(_topic)
         if self.connected:
             self._mqttc.subscribe(_topic, 0)
 
     ##########################################
     def publish(self, _topic, payload, qos=1, retain=False):
+        """Publish payload to MQTT topic"""
         if not self._running.is_set():
             return False
 
