@@ -8,7 +8,7 @@ import paho.mqtt.client as mqtt
 
 
 from utilities.log import LOGGER
-from const import TOPIC, PAYLOAD
+from const import LOG, TOPIC, PAYLOAD
 
 if platform.system() == "Linux":
     TLS_CA_CERT = "/etc/ssl/certs/ca-certificates.crt"
@@ -64,11 +64,9 @@ class Connector(mqtt.Client):
     ##########################################
     def start(self):
         """Connect and start message loop"""
-        LOGGER.info("%s Starting message loop", LOG_PREFIX)
-
+        LOGGER.info("%s Starting connector to Home-Assistant", LOG_PREFIX)
         self._tries = 0
         self._connected_event.clear()
-        LOGGER.info("%s Attempting to connect to MQTT broker", LOG_PREFIX)
         self.connect()
         self._mqttc.loop_start()
 
@@ -76,18 +74,23 @@ class Connector(mqtt.Client):
     def stop(self):
         """Stop message loop and disconnect"""
         LOGGER.info("%s Stopping message loop", LOG_PREFIX)
+        self._tries = 0
         self._mqttc.loop_stop()
         self._mqttc.disconnect()
 
     ##########################################
     def setup(self):
         """Setup MQTT client"""
+        LOGGER.info("%s Setup MQTT client %s", LOG_PREFIX, self._clientid)
         self._mqttc = mqtt.Client(
             client_id=self._clientid,
             clean_session=True,
         )
 
-        if self._port == 8883:
+        if self._config.mqtt.port == 8883:
+            LOGGER.info(
+                "%s Using TLS connection with TLS_CA_CERT: %s", LOG_PREFIX, TLS_CA_CERT
+            )
             self._mqttc.tls_set(
                 ca_certs=TLS_CA_CERT,
                 cert_reqs=ssl.CERT_REQUIRED,
@@ -149,25 +152,30 @@ class Connector(mqtt.Client):
             self._connected = False
             self._connected_event.clear()
             LOGGER.error(
-                "%s Connection Failed. %s", LOG_PREFIX, MQTT_CONN_CODES.get(rc)
+                "%s Connection Failed. Error: %s",
+                LOG_PREFIX,
+                MQTT_CONN_CODES.get(rc, "Unknown"),
             )
 
     ##########################################
     def mqtt_on_disconnect(self, mqttc, obj, rc):
         """MQTT broker was disconnected"""
         LOGGER.error(
-            "%s Disconnected. rc=%s %s", LOG_PREFIX, rc, MQTT_CONN_CODES.get(rc)
+            "%s Disconnected. rc=%s %s",
+            LOG_PREFIX,
+            rc,
+            MQTT_CONN_CODES.get(rc, "Unknown"),
         )
 
         self._connected = False
         self._connected_event.clear()
         if self._tries > 20:
-            LOGGER.error("%s Failed to re-connect. Exit")
+            LOGGER.error("%s Failed to re-connect. Exit", LOG_PREFIX)
             self.stop()
             self._running.clear()
 
         elif self._tries > 15:
-            LOGGER.info("%s Attempting re-connect.")
+            LOGGER.info("%s [%s] Attempting re-connect.", LOG_PREFIX, self._tries)
             self.stop()
             self.setup()
             self.start()
