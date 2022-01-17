@@ -250,7 +250,10 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     ###########################################################
     def conn_ping(self):
         """Ping Home Assistant connector"""
-        self._connector.ping("homeassistant/ping")
+        if self._ha_connected:
+            self._connector.ping("homeassistant/ping")
+        else:
+            LOGGER.error("%s HA is disconnected", LOG_PREFIX)
 
     ###########################################################
     def get_identifiers(self):
@@ -364,7 +367,6 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     def message_send(self, _data):
         """Send message to Home Assistant using connector"""
         if not self._ha_connected:
-            LOGGER.errror("%s Unable to send messge. HA disconnected")
             return False
 
         # LOGGER.debug("%s message: %s", LOG_PREFIX, _data.get(TOPIC))
@@ -464,7 +466,6 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         )
 
         self.message_send(_data)
-
         _data[PAYLOAD]["name"] = "Online"
         self.message_send(_data)
         self._publish_online()
@@ -538,8 +539,10 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             _data = setup_sensor(self._config, _name)
 
             self._connected_event.clear()
-            self.message_send(_data)
-            self._connected_event.wait(1)
+            if not self.message_send(_data):
+                continue
+
+            self._connected_event.wait(3)
 
             _data[PAYLOAD].update(
                 {"name": _name, "availability_topic": self._config.device.availability}
@@ -628,10 +631,9 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                 "availability_topic": self._config.device.availability,
             }
         )
-        self.message_send(_data)
-
-        _data[PAYLOAD].update({"name": self._config.host.friendly_name})
-        self.message_send(_data)
+        if self.message_send(_data):
+            _data[PAYLOAD].update({"name": self._config.host.friendly_name})
+            self.message_send(_data)
 
     ###########################################################
     def update_device_tracker(self):

@@ -185,7 +185,6 @@ class AgentPlatform:
                 _data[key] = int(disk_usage.percent)
                 self._attribs[key] = {
                     "mount": disk.mountpoint,
-                    #"dev": disk.device,
                     "fstype": disk.fstype,
                     "total": bytes2human(disk_usage.total),
                     "used": bytes2human(disk_usage.used),

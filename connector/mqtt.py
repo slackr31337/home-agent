@@ -4,6 +4,7 @@ import ssl
 import json
 import time
 import platform
+import socket
 import paho.mqtt.client as mqtt
 
 
@@ -68,7 +69,8 @@ class Connector(mqtt.Client):
         self._tries = 0
         self._connected_event.clear()
         self.connect()
-        self._mqttc.loop_start()
+        if self._connected:
+            self._mqttc.loop_start()
 
     ##########################################
     def stop(self):
@@ -122,9 +124,15 @@ class Connector(mqtt.Client):
             self._config.mqtt.port,
             self._tries,
         )
-        self._mqttc.connect(
-            host=self._config.mqtt.host, port=self._config.mqtt.port, keepalive=60
-        )
+        try:
+            self._mqttc.connect(
+                host=self._config.mqtt.host, port=self._config.mqtt.port, keepalive=60
+            )
+        except socket.timeout as err:
+            LOGGER.error("%s Failed to connect to MQTT broker. %s", LOG_PREFIX, err)
+            self._connected = False
+            self._connected_event.set()
+
 
     ##########################################
     def connected(self):

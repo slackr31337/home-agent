@@ -122,10 +122,10 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
 
         LOGGER.info("%s Stopping", LOG_PREFIX)
         self._running_event.clear()
+        self._task_event.set()
         if self._running:
             self._running = False
-            self._task_event.set()
-
+            
         LOGGER.info("%s Exit", LOG_PREFIX)
 
     ##########################################
@@ -135,9 +135,10 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
         """
         LOGGER.info("%s Starting scheduler", LOG_PREFIX)
         self.state_running()
-
+        timeout = 10
         while self.ready or self.sleeping:
-            timeout = None
+            LOGGER.debug("%s [Loop] tasks sleeping %s. timeout: %s", LOG_PREFIX, len(self.sleeping), timeout)
+            
             if self._task_event.is_set():
                 self.update_state("last_event", time.time())
                 self._task_event.clear()
@@ -146,11 +147,16 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
                 LOGGER.error("%s running is False. Exit", LOG_PREFIX)
                 break
 
-            if not self.ready:
+            if self.sleeping:
+                timeout = min(int(self.sleeping[0][0] - time.time()), 10)
 
+            if not self.ready:
                 while self.sleeping:
-                    timeout = min(int(self.sleeping[0][0] - time.time()), 10)
-                    if self.sleeping[0][0] > time.time():
+                    next = self.sleeping[0][0]
+                    timeout = int(next - time.time())
+                    LOGGER.debug("%s [Sleeping] tasks sleeping %s. timeout: %s", LOG_PREFIX, len(self.sleeping), timeout)
+                    timeout = min(timeout, 10)
+                    if next > time.time():
                         break
 
                     deadline, _id, func, args, log, sleep, forever = heapq.heappop(
@@ -168,6 +174,7 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
                         )
 
             while self.ready:
+                LOGGER.debug("%s [Ready] tasks ready %s. timeout: %s", LOG_PREFIX, len(self.ready), timeout)
                 start = time.time()
                 _id, func, args, log = self.ready.popleft()
                 self.update_task_state(_id, LAST, time.time())
@@ -186,8 +193,7 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
                         args,
                     )
                     LOGGER.error(err)
-                    _trace = traceback.format_exc()
-                    LOGGER.error(_trace)
+                    LOGGER.error(traceback.format_exc())
 
                 runtime = calc_elasped(start, None, True)
                 self.update_task_state(_id, RUNNING, False)
@@ -200,7 +206,10 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
                     runtime,
                 )
 
-            if timeout is not None and timeout > 0:
+            if len(self.ready) == 0:
+                if timeout == 0:
+                    timeout = 1
+                LOGGER.debug("%s [Wait] tasks sleeping: %s. timeout: %s.", LOG_PREFIX, len(self.sleeping), timeout)
                 self._task_event.wait(timeout)
 
         self.state_running(False)
