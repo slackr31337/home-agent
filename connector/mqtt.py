@@ -69,8 +69,7 @@ class Connector(mqtt.Client):
         self._tries = 0
         self._connected_event.clear()
         self.connect()
-        if self._connected:
-            self._mqttc.loop_start()
+        self._mqttc.loop_start()
 
     ##########################################
     def stop(self):
@@ -104,7 +103,7 @@ class Connector(mqtt.Client):
         self._mqttc.username_pw_set(
             username=self._config.mqtt.user, password=self._config.mqtt.password
         )
-        self._mqttc.reconnect_delay_set(min_delay=1, max_delay=30)
+        self._mqttc.reconnect_delay_set(min_delay=3, max_delay=30)
         self._mqttc.on_connect = self.mqtt_on_connect
         self._mqttc.on_disconnect = self.mqtt_on_disconnect
         self._mqttc.on_subscribe = self.mqtt_on_subscribe
@@ -126,13 +125,12 @@ class Connector(mqtt.Client):
         )
         try:
             self._mqttc.connect(
-                host=self._config.mqtt.host, port=self._config.mqtt.port, keepalive=60
+                host=self._config.mqtt.host, port=self._config.mqtt.port
             )
         except socket.timeout as err:
             LOGGER.error("%s Failed to connect to MQTT broker. %s", LOG_PREFIX, err)
             self._connected = False
             self._connected_event.set()
-
 
     ##########################################
     def connected(self):
