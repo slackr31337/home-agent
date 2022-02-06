@@ -15,7 +15,7 @@ PLATFORM = str(platform.system()).lower()
 
 DISCOVER_PREFIX = "homeassistant"
 DEVICE_PREFIX = "devices"
-TOPICS = ["command", "event"]
+TOPICS = ["command", "event", "status"]
 
 DEVICE_TOPIC = f"{DEVICE_PREFIX}/{HOSTNAME}"
 DEVICE_STATUS = f"{DEVICE_TOPIC}/status"

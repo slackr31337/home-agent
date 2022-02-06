@@ -24,9 +24,9 @@ cd /opt
 
 git clone https://github.com/slackr31337/home-agent.git
 
-cd home-agent
 
 echo "Creating virtualenv in ${DIR}"
+cd home-agent
 ${PY} -m venv env
 source env/bin/activate
 ${PY} -m pip install -r requirements.txt

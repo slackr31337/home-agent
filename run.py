@@ -10,10 +10,9 @@ import logging
 from utilities.log import LOGGER
 from utilities.scheduler import Scheduler
 from utilities.states import ThreadSafeDict
-from config import APP_NAME, Config, load_config
 from agent_args import parse_args
 from agent import LOG_PREFIX, HomeAgent
-
+from config import APP_NAME, Config, load_config
 
 LOG_PREFIX = "[HomeAgent]"
 #########################################
@@ -26,7 +25,7 @@ def run_service(_config, _sensors=None):
     running.set()
 
     sched = Scheduler(state, running)
-    agent = HomeAgent(_config, running, _sensors)
+    agent = HomeAgent(_config, running, sched, _sensors)
 
     sched.run(agent.start)
     sched.queue(agent.metrics, 10)
