@@ -12,38 +12,44 @@ from dmidecode import DMIDecode
 
 from utilities.log import LOGGER
 from utilities.util import get_boot
+from hardware.raspberrypi import RaspberryPi
 
 SKIP_MOUNTS = ["live", "docker", "subvol", "tmp"]
 LOG_PREFIX = "[Linux]"
-########################################################
+##########################################
 class AgentPlatform:
 
     platform = "linux"
     os = "Linux"
 
-    ########################################################
+    ##########################################
     def __init__(self):
         LOGGER.info("%s Init module", LOG_PREFIX)
-        self._dmi = DMIDecode()
         self._uname = platform.uname()
         self._cpuinfo = get_cpu_info()
         self._sysinfo = {}
         self._sensors = {}
         self._attribs = {}
+        self._hardware = None
         self._get_system_info()
 
-    ########################################################
+    ##########################################
     def state(self):
         """Return sysinfo dict"""
         return self._sensors, self._attribs
 
-    ########################################################
+    ##########################################
     def update(self):
         self._update_system_info()
 
-    ########################################################
+    ##########################################
     def _get_system_info(self):
         """Build system information and return dict"""
+        arch = self._cpuinfo.get("arch")
+        if "ARM" in arch:
+            self._hardware = RaspberryPi()
+        else:
+            self._hardware = DMIDecode()
 
         info = distro.info()
         _name = info.get("id", "Unknown").title()
@@ -60,23 +66,23 @@ class AgentPlatform:
 
         self._sysinfo = {
             "hostname": self._uname.node,
-            "manufacturer": self._dmi.manufacturer(),
-            "model": self._dmi.model(),
-            "serial": self._dmi.serial_number(),
-            "firmware": self._dmi.firmware(),
+            "manufacturer": self._hardware.manufacturer(),
+            "model": self._hardware.model(),
+            "serial": self._hardware.serial_number(),
+            "firmware": self._hardware.firmware(),
             "architecture": self._uname.machine,
             "platform": self._uname.system,
             "platform_release": _release,
             "platform_version": self._uname.release,
             "last_boot": get_boot(),
-            "processor": self._cpuinfo.get("brand_raw", "Unknown"),
+            "processor": self._cpuinfo.get("brand_raw", self._uname.processor),
             "processor_cores": psutil.cpu_count(logical=False),
             "processor_threads": psutil.cpu_count(),
         }
         LOGGER.debug(self._sysinfo)
         self._sensors.update(self._sysinfo.copy())
 
-    ########################################################
+    ##########################################
     def _update_system_info(self):
         """Build system information and return dict"""
 
@@ -224,4 +230,4 @@ class AgentPlatform:
 
         self._sensors.update(_data)
 
-    ########################################################
+    ##########################################

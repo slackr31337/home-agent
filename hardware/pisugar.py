@@ -1,0 +1,1 @@
+"""PiSugar Hat device support"""
