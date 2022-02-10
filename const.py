@@ -25,6 +25,7 @@ REJECTED = "rejected"
 DELAY = "delay"
 STARTED = "started"
 READY = "ready"
+RESET = "reset"
 
 EVENT = "event"
 ENDPOINT = "endpoint"

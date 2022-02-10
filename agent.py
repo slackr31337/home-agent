@@ -52,6 +52,8 @@ from const import (
     UNIQUE_ID,
     STATUS,
     GET,
+    CONNECTED,
+    RESET,
 )
 
 LOG_PREFIX = "[HomeAgent]"
@@ -236,31 +238,49 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         elasped = calc_elasped(start)
         LOGGER.info("%s Startup finished in %s", LOG_PREFIX, elasped)
 
-    ###########################################################
+    ##########################################
+    def _conn_reset(self):
+        """Reset HA connection"""
+        self._stats[LAST][RESET] = int(time.time())
+        self.stop()
+        time.sleep(5)
+        self.start()
+
+    ##########################################
     def conn_ping(self):
         """Ping Home Assistant connector"""
-        last_pong = self._stats[LAST].get(PONG, 0)
+        last_reset = self._stats[LAST].get(RESET, 0)
         last_ping = self._stats[LAST].get(PING, 0)
+        last_pong = self._stats[LAST].get(PONG, 0)
         delta = int(last_ping - last_pong)
+        elasped = calc_elasped(last_pong)
 
-        LOGGER.debug("%s [Ping] delta: %s", LOG_PREFIX, delta)
-        if last_ping != 0 and delta > 300:
-            elasped = calc_elasped(last_ping)
+        LOGGER.debug(
+            "%s [Ping] Last response delta: %s %s ago", LOG_PREFIX, delta, elasped
+        )
+
+        if last_pong != 0 and delta > 300:
             LOGGER.warning(
                 "%s Last ping response was %s ago. Restarting home-agent",
                 LOG_PREFIX,
                 elasped,
             )
-            self.stop()
-            time.sleep(5)
-            self.start()
+            self._conn_reset()
 
+        self._stats[LAST][PING] = int(time.time())
         if self._ha_connected:
+            self._stats[LAST][CONNECTED] = int(time.time())
             self._connector.ping("homeassistant/status")
-            self._stats[LAST][PING] = int(time.time())
 
         else:
-            LOGGER.error("%s HA is disconnected", LOG_PREFIX)
+            reset_elasped = calc_elasped(last_reset)
+            LOGGER.error(
+                "%s HA is disconnected. Last connected %s ago. Last reset was %s ago.",
+                LOG_PREFIX,
+                elasped,
+                reset_elasped,
+            )
+            self._conn_reset()
 
     ###########################################################
     def _add_sensor_prefixes(self):
