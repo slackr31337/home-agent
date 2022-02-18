@@ -7,6 +7,7 @@ plyer; platform_system == 'Windows'
 mss; sys_platform == 'linux' or platform_system == 'Windows'
 wmi; platform_system == 'Windows'
 python-certifi-win32; platform_system == 'Windows'
+gpsd-py3; sys_platform == 'linux'
 pyyaml
 hass_client
 requests

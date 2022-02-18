@@ -47,7 +47,7 @@ PUBLISH_SENSOR_PREFIX = [
     "disk_",
     "network_enp",
     "network_eth",
-    "network_wl",
+    "network_w",
     "temp",
     "coretemp",
     "k10temp_",
