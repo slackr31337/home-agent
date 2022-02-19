@@ -584,37 +584,39 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     def _setup_module_sensors(self, _module):
         """Configure sensors from loaded module"""
 
-        _sensors = self._modules[_module].sensors
-        if not _sensors:
+        mod_class = self._modules[_module]
+        if not hasattr(mod_class, "sensors"):
             return
 
-        _sensor_types = self._modules[_module].sensor_types
-        if _sensor_types:
-            self._config.sensors.type.update(_sensor_types)
+        if hasattr(mod_class, "sensor_types"):
+            self._config.sensors.type.update(mod_class.sensor_types)
 
-        _sensor_attribs = self._modules[_module].sensor_attribs
-        if _sensor_attribs:
-            self._config.sensors.attrib.update(_sensor_attribs)
+        if hasattr(mod_class, "sensor_attribs"):
+            self._config.sensors.attrib.update(mod_class.sensor_attribs)
 
-        _sensor_icons = self._modules[_module].sensor_icons
-        if _sensor_icons:
-            self._config.sensors.icons.update(_sensor_icons)
+        if hasattr(mod_class, "sensor_icons"):
+            self._config.sensors.icons.update(mod_class.sensor_icons)
 
-        _sensors_set = self._modules[_module].sensors_set
-        for _sensor in _sensors:
+        if hasattr(mod_class, "sensors_set"):
+            _sensors_set = mod_class.sensors_set
+
+        else:
+            _sensors_set = {}
+
+        for _sensor in mod_class.sensors:
             LOGGER.info(
                 "%s Setup sensor %s for module %s", LOG_PREFIX, _sensor, _module
             )
             self.sensors[_sensor] = {}
 
-            _attrib = self._modules[_module].attribs.get(_sensor)
+            _attrib = mod_class.attribs.get(_sensor)
             if _attrib:
                 self._config.sensors.attrib[_sensor] = _attrib
                 LOGGER.debug("%s %s: %s", LOG_PREFIX, _sensor, _attrib)
 
-            if _sensor in _sensors_set and hasattr(self._modules[_module], "set"):
+            if _sensor in _sensors_set and hasattr(mod_class, "set"):
                 LOGGER.info("%s Setup callback %s.set()", LOG_PREFIX, _sensor)
-                self._callback[_sensor] = self._modules[_module].set
+                self._callback[_sensor] = mod_class.set
 
     ###########################################################
     def _setup_sensors(self):

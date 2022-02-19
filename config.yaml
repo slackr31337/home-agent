@@ -34,3 +34,8 @@ device_tracker:
 locations:
   home: "home"
   work: "My Work"
+
+# Module parameters
+modules:
+  gps:
+    device: /dev/ttyUSB1
