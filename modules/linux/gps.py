@@ -2,6 +2,11 @@
 
 import gpsd
 
+
+from utilities.log import LOGGER
+
+LOG_PREFIX = "[GPS]"
+STATE_MAP = {}
 ################################################################
 class AgentModule:
 
@@ -23,6 +28,25 @@ class AgentModule:
         return self._available
 
     ###############################################################
+    def get(self, _method):
+        """Return state for given method"""
+        LOGGER.debug("%s get: %s", LOG_PREFIX, _method)
+
+        if hasattr(self, _method):
+            _func = getattr(self, _method)
+            LOGGER.debug("%s module function: %s()", LOG_PREFIX, _func.__name__)
+            return _func()
+
+        value, attribs = self._state.get(_method)
+        if value in STATE_MAP:
+            value = STATE_MAP.get(value)
+
+        LOGGER.debug("%s module sensor %s %s", LOG_PREFIX, _method, value)
+        return value, attribs
+
+    ###############################################################
     def location(self):
         location = self._gps.get_current()
-        print(location.position())
+        position = location.position()
+        LOGGER.info("%s position: %s", LOG_PREFIX, position)
+        return str(position), None

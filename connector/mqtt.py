@@ -78,6 +78,7 @@ class Connector(mqtt.Client):
         self._tries = 0
         self._mqttc.loop_stop()
         self._mqttc.disconnect()
+        LOGGER.info("%s Exit", LOG_PREFIX)
 
     ##########################################
     def setup(self):

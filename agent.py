@@ -212,11 +212,13 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             if hasattr(self._modules[module], "stop"):
                 self._modules[module].stop()
 
-        LOGGER.info("%s Disconnecting", LOG_PREFIX)
+        LOGGER.info("%s Disconnect from HA", LOG_PREFIX)
         self._connected_event.clear()
         self._connector.stop()
+        self._connector = None
         self._ha_connected = False
         LOGGER.info("%s Exit", LOG_PREFIX)
+        sys.exit()
 
     ###########################################################
     def start(self):
@@ -242,9 +244,11 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     def _conn_reset(self):
         """Reset HA connection"""
         self._stats[LAST][RESET] = int(time.time())
-        self.stop()
+        self._connected_event.clear()
+        self._connector.stop()
+        self._connector = None
         time.sleep(5)
-        self.start()
+        self._connector_module()
 
     ##########################################
     def conn_ping(self):

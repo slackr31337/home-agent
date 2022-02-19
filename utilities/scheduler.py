@@ -106,8 +106,6 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
         Adds the func to the ready queue immediately
         """
         _id = self._get_task_id(func.__name__)
-        # LOGGER.debug("%s Adding task %s args: %s", LOG_PREFIX, _id, args)
-        # self.ready.append((_id, func, args, log))
         self.queue(func, 1, False, args)
         self.set_task_state(_id, func, args, log)
         if self._running:
