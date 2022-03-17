@@ -11,6 +11,7 @@ class AgentModule:
     name = "Camera module"
     slug = "camera"
     platform = ["linux"]
+    _available = False
     sensors = []
     attribs = {}
     sensors_set = []

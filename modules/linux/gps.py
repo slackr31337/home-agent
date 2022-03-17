@@ -37,7 +37,7 @@ class AgentModule:
     sensor_icons = {}
     sensors_set = []
     services = {}
-    gps_dev = "/dev/serial/by-id/usb-Android_LE910C4-NF_0123456789ABCDEF-if03-port0"
+    _available = False
 
     ##########################################
     def __init__(self, config: Config):
@@ -45,7 +45,7 @@ class AgentModule:
         LOGGER.info("%s init using: %s", LOG_PREFIX, config.gps.dev)
         self._ready = threading.Event()
         self._ready.clear()
-        self._location = Location(self._ready, self.gps_dev)
+        self._location = Location(self._ready, config.gps.dev)
         if not self._location.ready():
             return
         self._available = True

@@ -13,12 +13,13 @@ from config import Config
 LOG_PREFIX = "[PiSugar]"
 DEFAULT_FILE = "/tmp/pisugar-server.sock"
 ##########################################
-class Pisugar:
+class HWModule:
     """Module for PiSugar battery sensors"""
 
     name = "PiSugar module"
     slug = "pisugar"
     platform = ["linux"]
+    hardware = "raspberrypi"
     sensors = [
         "model",
         "battery",
@@ -38,7 +39,7 @@ class Pisugar:
     ##########################################
     def __init__(self, config: Config):
         self._available = False
-        items = config.get("pisugar")
+        items = config.get(self.slug)
         if items is None:
             sock_file = DEFAULT_FILE
         else:

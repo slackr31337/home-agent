@@ -11,6 +11,7 @@ class AgentModule:
     name = "Portaudio module"
     slug = "audio"
     platform = ["linux"]
+    _available = False
     sensors = []
     attribs = {}
     sensors_set = []

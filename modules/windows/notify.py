@@ -4,10 +4,12 @@ import plyer
 
 ################################################################
 class AgentModule:
+    """Windows desktop notifications module"""
 
     name = "Notify module"
     slug = "notify"
     platform = ["windows"]
+    _available = False
     sensors = []
     attribs = {}
     sensor_class = {}
@@ -21,10 +23,12 @@ class AgentModule:
 
     ###############################################################
     def available(self):
+        """Return bool for available status"""
         return self._available
 
     ###############################################################
     def notify(self, data):
+        """Create desktop notification with message"""
         title = data.get("title", "HomeAgent Notification")
         message = data.get("message", "")
         timeout = int(data.get("timeout", 1200))

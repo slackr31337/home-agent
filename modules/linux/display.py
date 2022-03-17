@@ -32,6 +32,7 @@ class AgentModule:
     name = "X11 display module"
     slug = "display"
     platform = ["linux"]
+    _available = False
     services = {}
     sensors = ["display_idle", "screen_capture", "disable_capture", "display_locked"]
     attribs = {}

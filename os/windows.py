@@ -14,6 +14,8 @@ from utilities.util import get_boot
 LOG_PREFIX = "[Windows]"
 ########################################################
 class AgentPlatform:
+    """OS Module for Windows"""
+
     _svc_name_ = "HomeAgent"
     _svc_display_name_ = "Home Agent for Home Assistant"
     _svc_description_ = "PC sensors and notifications"
@@ -22,7 +24,7 @@ class AgentPlatform:
     os = "Windows"
 
     ########################################################
-    def __init__(self, args=None):
+    def __init__(self):
         LOGGER.info("%s Init module", LOG_PREFIX)
         self._running = False
         self._wmi = wmi.WMI()
@@ -49,6 +51,7 @@ class AgentPlatform:
 
     ########################################################
     def update(self):
+        """Poll sensor data"""
         return self._update_system_info()
 
     ########################################################
@@ -61,7 +64,7 @@ class AgentPlatform:
         _release = f"{_name} {_version} ({_codename})"
         LOGGER.info("[%s] OS: %s", self.platform, _release)
 
-        board_id  = self._wmi.Win32_BaseBoard()[0]
+        board_id = self._wmi.Win32_BaseBoard()[0]
         self._sysinfo = {
             "hostname": str(self._uname.node).lower(),
             "manufacturer": board_id.Manufacturer,
@@ -98,7 +101,7 @@ class AgentPlatform:
             attribs[term] = f"{user.name}@{host}"
 
         self._attribs["users"] = attribs
-            
+
         memory_usage = psutil.virtual_memory()
         _data = {
             "users": users,
@@ -125,7 +128,7 @@ class AgentPlatform:
             "total": bytes2human(memory_usage.total),
             "used": bytes2human(memory_usage.used),
         }
-        
+
         nics = psutil.net_if_addrs()
         nic_stats = psutil.net_if_stats()
         io_counters = psutil.net_io_counters(pernic=True)
@@ -168,7 +171,7 @@ class AgentPlatform:
                     self._attribs[key]["ipv6"] = _addr
 
                 elif "AF_LINK" in str(addr.family):
-                    _addr = _addr.replace("-",":")
+                    _addr = _addr.replace("-", ":")
                     _data[f"network_{iface}_mac"] = _addr
                     _data["mac_addresses"].append(_addr)
                     self._attribs[key]["mac"] = _addr
@@ -179,7 +182,7 @@ class AgentPlatform:
 
         for disk in psutil.disk_partitions():
             try:
-                dev = str(disk.mountpoint).split(":")[0].lower()
+                dev = str(disk.mountpoint).split(":", maxsplit=1)[0].lower()
                 key = f"disk_{dev}"
                 disk_usage = psutil.disk_usage(disk.mountpoint)
                 _data[key] = int(disk_usage.percent)
@@ -189,7 +192,7 @@ class AgentPlatform:
                     "total": bytes2human(disk_usage.total),
                     "used": bytes2human(disk_usage.used),
                 }
-            except PermissionError as err:
+            except PermissionError:
                 pass
 
         self._sysinfo.update(_data)

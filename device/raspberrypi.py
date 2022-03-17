@@ -3,6 +3,8 @@
 class RaspberryPi:
     """Class for Raspberry Pi Hardware"""
 
+    platform = ["linux"]
+    hardware = "raspberrypi"
     machine = "arm"
     _manufacturer = "Raspberry Pi"
     _firmware = ""

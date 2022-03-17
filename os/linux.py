@@ -12,15 +12,17 @@ from dmidecode import DMIDecode
 
 from utilities.log import LOGGER
 from utilities.util import get_boot
-from hardware.raspberrypi import RaspberryPi
+from device.raspberrypi import RaspberryPi
 
 SKIP_MOUNTS = ["live", "docker", "subvol", "tmp"]
 LOG_PREFIX = "[Linux]"
 ##########################################
 class AgentPlatform:
+    """OS Module for Linux"""
 
     platform = "linux"
     os = "Linux"
+    hardware = "pc"
 
     ##########################################
     def __init__(self):
@@ -40,14 +42,16 @@ class AgentPlatform:
 
     ##########################################
     def update(self):
+        """Poll system sensors"""
         self._update_system_info()
 
     ##########################################
-    def _get_system_info(self):
+    def _get_system_info(self) -> dict:
         """Build system information and return dict"""
         arch = self._cpuinfo.get("arch")
         if "ARM" in arch:
             self._hardware = RaspberryPi()
+            self.hardware = "raspberrypi"
         else:
             self._hardware = DMIDecode()
 
@@ -83,7 +87,7 @@ class AgentPlatform:
         self._sensors.update(self._sysinfo.copy())
 
     ##########################################
-    def _update_system_info(self):
+    def _update_system_info(self) -> dict:
         """Build system information and return dict"""
 
         logins = psutil.users()
@@ -180,7 +184,7 @@ class AgentPlatform:
         for disk in psutil.disk_partitions():
             if any(item in str(disk.mountpoint) for item in SKIP_MOUNTS):
                 continue
-            dev = str(disk.device).split("/")[-1]
+            dev = str(disk.device).split("/", maxsplit=10)[-1]
             key = f"disk_{dev}"
             disk_usage = psutil.disk_usage(disk.mountpoint)
             _data[key] = int(disk_usage.percent)

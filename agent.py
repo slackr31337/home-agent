@@ -10,11 +10,12 @@ import pathlib
 import glob
 import json
 import ipaddress
+from scheduler import Scheduler
 
 
 from utilities.log import LOGGER
 from utilities.util import calc_elasped
-from config import ONLINE_ATTRIB
+from config import ONLINE_ATTRIB, Config
 from const import (
     ATTRIBS,
     STATE,
@@ -62,7 +63,13 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     """Class to collect and report endpoint data"""
 
     ###########################################################
-    def __init__(self, config, running, sched, sensors=None):
+    def __init__(
+        self,
+        config: Config,
+        running: threading.Event,
+        sched: Scheduler,
+        sensors: dict = None,
+    ):
         """Init class"""
         self._connected_event = threading.Event()
         self._config = config
@@ -80,11 +87,14 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         self.device = {}
         self.attribs = {}
         self.icons = {}
-        self.sensors = sensors
-        if self.sensors is None:
+
+        if sensors:
+            self.sensors = sensors
+        else:
             self.sensors = self._config.sensors.get(PUBLISH)
 
         self._os_module()
+        self._load_hardware()
         self._connector_module()
         self._load_modules()
 
@@ -162,8 +172,47 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         self._ha_connected = self._connector.connected()
 
     ###########################################################
+    def _load_hardware(self):
+        """Load hardware modules"""
+        hw_dir = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)),
+            "hardware",
+        )
+        sys.path.append(hw_dir)
+
+        LOGGER.debug("%s Loading HW modules from %s", LOG_PREFIX, hw_dir)
+        hw_mods = glob.glob(os.path.join(hw_dir, "*.py"))
+
+        for _mod in hw_mods:
+            _name = pathlib.Path(_mod).stem
+            LOGGER.info("%s Import HW module: %s", LOG_PREFIX, _name)
+
+            _module = importlib.import_module(_name)
+            _mod_class = getattr(_module, "HWModule")
+            if _mod_class.hardware != self.platform_class.hardware:
+                LOGGER.info(
+                    "%s HW module %s not supported on %s",
+                    LOG_PREFIX,
+                    _mod_class.name,
+                    self.platform_class.hardware,
+                )
+                continue
+            try:
+                _class = _mod_class(self._config)
+                if not _class.available():
+                    LOGGER.warning("%s [%s] Not available", LOG_PREFIX, _class.name)
+                    continue
+
+            except Exception as err:  # pylint: disable=broad-except
+                LOGGER.error(
+                    "%s Failed to load HW module %s. %s", LOG_PREFIX, _name, err
+                )
+                LOGGER.debug(traceback.format_exc())
+                continue
+
+    ###########################################################
     def _load_modules(self):
-        """Load module from directory modules"""
+        """Load sensor modules"""
 
         mod_dir = os.path.join(
             os.path.dirname(os.path.realpath(__file__)),
@@ -171,7 +220,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         )
         sys.path.append(mod_dir)
 
-        LOGGER.debug("%s Loading modules from %s", LOG_PREFIX, mod_dir)
+        LOGGER.debug("%s Loading sensor modules from %s", LOG_PREFIX, mod_dir)
         _mods = glob.glob(os.path.join(mod_dir, "*.py"))
 
         for _mod in _mods:
@@ -193,14 +242,20 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
 
             try:
                 _class = _mod_class(self._config)
-                LOGGER.info("%s [%s] Loaded %s", LOG_PREFIX, _class.slug, _class.name)
-                self._modules[_class.slug] = _class
-                self._setup_module_sensors(_class.slug)
-                self._setup_module_services(_class.slug)
 
             except Exception as err:  # pylint: disable=broad-except
                 LOGGER.error("%s Failed to load module %s. %s", LOG_PREFIX, _name, err)
                 LOGGER.debug(traceback.format_exc())
+                continue
+
+            if not _class.available():
+                LOGGER.warning("%s [%s] Not available", LOG_PREFIX, _class.slug)
+                continue
+
+            LOGGER.info("%s [%s] Loaded %s", LOG_PREFIX, _class.slug, _class.name)
+            self._modules[_class.slug] = _class
+            self._setup_module_sensors(_class.slug)
+            self._setup_module_services(_class.slug)
 
     ###########################################################
     def stop(self):
