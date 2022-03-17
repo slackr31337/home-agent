@@ -106,7 +106,7 @@ deactivate
 
 ## Authors
 
-Robert Dunmire III [@slackr31337](slackr31337@gmail.com)
+Robert Dunmire III [@slackr31337] slackr31337@gmail.com
 
 ## Version History
 
@@ -116,4 +116,4 @@ Robert Dunmire III [@slackr31337](slackr31337@gmail.com)
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE.md file for details
+This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
