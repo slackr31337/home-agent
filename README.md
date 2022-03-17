@@ -3,6 +3,11 @@
 
 This is an endpoint agent for Windows and Linux for collecting metrics for Home-Assistant sensors written in Python.
 
+## Description
+
+I wanted to have the ability to interact and connect with my computers to Home-Assistant (https://www.home-assistant.io/). Collect sesnor data and trigger notifications right on my desktop. 
+
+
 ## Connectors
   - MQTT Client
   - Home-Assistant WS API (In-progress, not working)
