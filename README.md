@@ -63,6 +63,13 @@ deactivate
 ```
   #Home Assistant connector. mqtt or api
   connector: mqtt
+  
+  # MQTT host, port and auth
+  mqtt:
+    host: mqtt.host.local
+    port: 1883
+    user: "mqtt"
+    password: "secret_password"
 
   #Device name in Home Assistant
   host:
