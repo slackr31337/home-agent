@@ -104,9 +104,81 @@ deactivate
 ```
 
 
+## Running home-agent
+```
+cd /opt/home-agent
+user@laptop:/opt/home-agent$ source env/bin/activate
+(env) user@laptop:/opt/home-agent$ 
+
+(env) user@laptop:/opt/home-agent$ python3 run.py -h
+[            run.py:               main()]  INFO Starting Home Agent endpoint
+usage: run.py [-h] [-c CONFIG] [-s] [-d]
+
+Home Agent endpoint
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -c CONFIG, --config CONFIG
+                        Set config.yaml file
+  -s, --service         Run as service
+  -d, --debug           Turn on DEBUG logging
+
+(env) user@laptop:/opt/home-agent$ python3 run.py -s -c secrets.yaml 
+[            run.py:               main()]  INFO Starting Home Agent endpoint
+[            run.py:               main()]  INFO [HomeAgent] Loading config file: secrets.yaml
+[            run.py:        run_service()]  INFO [HomeAgent] is starting
+[          agent.py:         _os_module()]  INFO [HomeAgent] Loading OS module: linux
+[          linux.py:           __init__()]  INFO [Linux] Init module
+[          linux.py:   _get_system_info()]  INFO [linux] OS: Debian 11 (bullseye)
+[          agent.py:  _connector_module()]  INFO [HomeAgent] Loading connector module: mqtt
+[           mqtt.py:              setup()]  INFO [MQTT] Setup MQTT client homeagent_laptop_1647535914
+[           mqtt.py:              setup()]  INFO [MQTT] Using TLS connection with TLS_CA_CERT: /etc/ssl/certs/ca-certificates.crt
+[          agent.py:  _connector_module()]  INFO [HomeAgent] Connector subscribe: homeassistant/status
+[          agent.py:  _connector_module()]  INFO [HomeAgent] Connector subscribe: devices/laptop/command
+[          agent.py:  _connector_module()]  INFO [HomeAgent] Connector subscribe: devices/laptop/event
+[          agent.py:  _connector_module()]  INFO [HomeAgent] Connector subscribe: devices/laptop/status
+[           mqtt.py:              start()]  INFO [MQTT] Starting connector to Home-Assistant
+[           mqtt.py:            connect()]  INFO [MQTT] Connecting to mqtt.server.local:8883 (attempt 1)
+[           mqtt.py:    mqtt_on_connect()]  INFO [MQTT] Connected mqtt://mqtt.server.local:8883
+[           mqtt.py:    mqtt_on_connect()]  INFO [MQTT] Subscribing to homeassistant/status
+[           mqtt.py:    mqtt_on_connect()]  INFO [MQTT] Subscribing to devices/laptop/command
+[           mqtt.py:    mqtt_on_connect()]  INFO [MQTT] Subscribing to devices/laptop/event
+[           mqtt.py:    mqtt_on_connect()]  INFO [MQTT] Subscribing to devices/laptop/status
+[          agent.py:  _connector_module()]  INFO [HomeAgent] Connector is connected: True
+
+...
+```
+
+## Running systemd service
+```
+cp /opt/home-agent/systemd/home-agent.service /lib/systemd/system/
+systemctl enable home-agent
+systemctl start home-agent
+```
+
+```
+rob@slackRMobileLTE:/opt/home-agent# systemctl status home-agent.service 
+● homeagent.service - Home-agent Endpoint Service
+     Loaded: loaded (/lib/systemd/system/homeagent.service; enabled; vendor preset: enabled)
+     Active: active (running) since Thu 2022-03-17 12:24:25 GMT; 4h 22min ago
+   Main PID: 6023 (python3)
+      Tasks: 3 (limit: 2178)
+        CPU: 17min 9.183s
+     CGroup: /system.slice/homeagent.service
+             └─6023 /opt/home-agent/env/bin/python3 /opt/home-agent/run.py -s -c /opt/home-agent/secrets.yaml
+
+```
+
+
+## Home-Assistant MQTT Device
+![home-assistant-device1](https://github.com/slackr31337/home-agent/blob/main/screenshots/home-assistant-device1.jpg?raw=true)
+
+![home-assistant-device2](https://github.com/slackr31337/home-agent/blob/main/screenshots/home-assistant-server02.jpg?raw=true)
+
+
 ## Authors
 
-Robert Dunmire III [@slackr31337] slackr31337@gmail.com
+Robert Dunmire III @slackr31337 slackr31337@gmail.com
 
 ## Version History
 
