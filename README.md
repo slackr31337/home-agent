@@ -1,6 +1,5 @@
 # Home-Agent
 
-
 This is an endpoint agent for Windows and Linux for collecting metrics for Home-Assistant sensors written in Python.
 
 ## Description
@@ -9,11 +8,13 @@ I wanted to have the ability to interact and connect with my computers to Home-A
 
 
 ## Connectors
+
   - MQTT Client
-  - Home-Assistant WS API (In-progress, not working)
+  - Home-Assistant WS API (In-progress, not working yet)
 
 
 ## Sensors
+
   - OS Info
   - CPU
   - Memory
@@ -23,8 +24,6 @@ I wanted to have the ability to interact and connect with my computers to Home-A
   - Laptop battery
   - Device tracker
   - OS Users
-  
-  
   
 
   # Linux
@@ -40,6 +39,18 @@ I wanted to have the ability to interact and connect with my computers to Home-A
     - More ToDo
     
     
+    
+## Dependencies
+
+A Home-Assistant install (https://www.home-assistant.io/installation/)
+
+Mosquitto MQTT Server (https://mosquitto.org/)
+
+Python3 (3.9+ preferred)
+- paho-mqtt or hass_client
+- pyler
+- mss
+
 
 # Install Linux
 - Pull from master
@@ -92,3 +103,17 @@ deactivate
 
 ```
 
+
+## Authors
+
+Robert Dunmire III [@slackr31337](slackr31337@gmail.com)
+
+## Version History
+
+* 0.0.1-alpha1
+  * Inital Release
+
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE.md file for details
