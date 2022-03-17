@@ -9,7 +9,7 @@ import paho.mqtt.client as mqtt
 
 
 from utilities.log import LOGGER
-from const import LOG, TOPIC, PAYLOAD
+from const import TOPIC, PAYLOAD
 
 if platform.system() == "Linux":
     TLS_CA_CERT = "/etc/ssl/certs/ca-certificates.crt"
@@ -33,6 +33,7 @@ MQTT_CONN_CODES = {
 LOG_PREFIX = "[MQTT]"
 ##########################################
 class Connector(mqtt.Client):
+    """Home Assistant Connector class"""
 
     name = "mqtt"
 
@@ -139,7 +140,9 @@ class Connector(mqtt.Client):
         return self._connected
 
     ##########################################
-    def mqtt_on_connect(self, mqttc, userdata, flags, rc):
+    def mqtt_on_connect(
+        self, mqttc, userdata, flags, rc
+    ):  # pylint: disable=unused-argument, invalid-name
         """MQTT broker connect event"""
         if rc == 0:
             self._connected = True
@@ -165,7 +168,9 @@ class Connector(mqtt.Client):
             )
 
     ##########################################
-    def mqtt_on_disconnect(self, mqttc, obj, rc):
+    def mqtt_on_disconnect(
+        self, mqttc, obj, rc
+    ):  # pylint: disable=unused-argument, invalid-name
         """MQTT broker was disconnected"""
         LOGGER.error(
             "%s Disconnected. rc=%s %s",
@@ -188,12 +193,14 @@ class Connector(mqtt.Client):
             self.start()
 
     ##########################################
-    def mqtt_log(self, mqttc, obj, level, string):
+    def mqtt_log(self, mqttc, obj, level, string):  # pylint: disable=unused-argument
         """Log string from MQTT client"""
         LOGGER.debug("%s %s", string)
 
     ##########################################
-    def mqtt_on_message(self, mqttc, obj, msg):
+    def mqtt_on_message(
+        self, mqttc, obj, msg
+    ):  # pylint: disable=unused-argument, invalid-name
         """Call back function for recieved MQTT message"""
         LOGGER.debug("%s %s payload: %s", LOG_PREFIX, msg.topic, msg.payload)
         self._connected_event.set()
@@ -226,7 +233,7 @@ class Connector(mqtt.Client):
             )
 
     ##########################################
-    def message_callback(self, callback):
+    def message_callback(self, callback=None):
         """Set call back function for MQTT message"""
         self._callback = callback
 
@@ -236,7 +243,9 @@ class Connector(mqtt.Client):
         self._mqttc.will_set(topic, payload=payload, qos=0, retain=False)
 
     ##########################################
-    def mqtt_on_subscribe(self, mqttc, obj, mid, granted_qos):
+    def mqtt_on_subscribe(
+        self, mqttc, obj, mid, granted_qos
+    ):  # pylint: disable=unused-argument
         """Call back function for subcribe to topic"""
         LOGGER.debug(
             "%s Subscribed to %s %s qos[{%s]",
@@ -250,7 +259,8 @@ class Connector(mqtt.Client):
     def subscribe_to(self, _topic=None):
         """Add topic to subscribe"""
         self._subscribe.append(_topic)
-        if self.connected:
+
+        if self.connected is True:
             self._mqttc.subscribe(_topic, 0)
 
     ##########################################

@@ -12,7 +12,6 @@ from utilities.log import LOGGER
 from utilities.util import calc_elasped
 from const import SCHEDULER, RUNNING, TASKS, NEXT, LAST, FUNCTION, SLEEP, ARGS, LOG
 
-
 LOG_PREFIX = "[Scheduler]"
 ##########################################
 class Scheduler:  # pylint: disable=too-many-instance-attributes
@@ -24,13 +23,13 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
         signal.signal(signal.SIGINT, self.stop)
         signal.signal(signal.SIGTERM, self.stop)
 
+        self._running = False
         self._task_event = threading.Event()
         self._task_event.clear()
         self.ready = deque()
         self.sleeping = []
         self._state = _state
         self._running_event = _running_event
-        self._running = False
 
         with self._state as _state:
             _state[SCHEDULER] = {RUNNING: False, TASKS: {}}
@@ -174,8 +173,8 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
 
             if not self.ready:
                 while self.sleeping:
-                    next = self.sleeping[0][0]
-                    timeout = int(next - time.time())
+                    deadline = self.sleeping[0][0]
+                    timeout = int(deadline - time.time())
                     LOGGER.debug(
                         "%s [Sleeping] tasks sleeping %s. timeout: %s",
                         LOG_PREFIX,
@@ -183,7 +182,7 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
                         timeout,
                     )
                     timeout = min(timeout, 3)
-                    if next > time.time():
+                    if deadline > time.time():
                         break
 
                     deadline, _id, func, args, log, sleep, forever = heapq.heappop(
@@ -227,7 +226,7 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
                     LOGGER.error(err)
                     LOGGER.error(traceback.format_exc())
 
-                runtime = calc_elasped(start, None, True)
+                runtime = calc_elasped(start, True)
                 self.update_task_state(_id, RUNNING, False)
                 self.update_task_state(_id, "runtime", runtime)
 

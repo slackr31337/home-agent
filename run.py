@@ -8,15 +8,15 @@ import logging
 
 
 from utilities.log import LOGGER
-from utilities.scheduler import Scheduler
 from utilities.states import ThreadSafeDict
+from scheduler import Scheduler
 from agent_args import parse_args
 from agent import LOG_PREFIX, HomeAgent
 from config import APP_NAME, Config, load_config
 
 LOG_PREFIX = "[HomeAgent]"
 #########################################
-def run_service(_config, _sensors=None):
+def run_service(config: Config, _sensors=None):
     """Run Home Agent Service"""
     LOGGER.info("%s is starting", LOG_PREFIX)
 
@@ -25,16 +25,16 @@ def run_service(_config, _sensors=None):
     running.set()
 
     sched = Scheduler(state, running)
-    agent = HomeAgent(_config, running, sched, _sensors)
+    agent = HomeAgent(config, running, sched, _sensors)
 
     sched.run(agent.start)
     sched.queue(agent.metrics, 10)
     sched.queue(agent.events, 10)
 
-    sched.queue(agent.metrics, _config.intervals.metrics, True)
-    sched.queue(agent.events, _config.intervals.events, True)
-    sched.queue(agent.modules, _config.intervals.modules, True)
-    sched.queue(agent.conn_ping, _config.intervals.ping, True)
+    sched.queue(agent.metrics, config.intervals.sensors, True)
+    sched.queue(agent.events, config.intervals.events, True)
+    sched.queue(agent.modules, config.intervals.modules, True)
+    sched.queue(agent.conn_ping, config.intervals.ping, True)
 
     sched.start()
 

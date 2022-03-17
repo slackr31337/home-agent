@@ -153,6 +153,7 @@ TYPE_MAP = {
 }
 
 APP_NAME = "Home Agent endpoint"
+
 #########################################
 def load_config(_file=CONFIG_FILE):
     """Load configuration from yaml"""

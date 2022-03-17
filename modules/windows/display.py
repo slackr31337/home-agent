@@ -11,6 +11,7 @@ from config import HOSTNAME
 LOG_PREFIX = "[display]"
 ################################################################
 class AgentModule:
+    """Agent class for display sensors"""
 
     name = "Windows display module"
     slug = "display"
@@ -41,8 +42,9 @@ class AgentModule:
         "display_locked": "monitor-lock",
     }
     ###############################################################
-    def __init__(self, timeout=300):
+    def __init__(self, config: dict, timeout: int = 300):
         LOGGER.debug("%s init module", LOG_PREFIX)
+        self._config = config
         self._user32 = ctypes.windll.User32
         self._mss = mss()
         self._available = True
@@ -57,6 +59,7 @@ class AgentModule:
 
     ###############################################################
     def available(self):
+        """Return bool value for available status"""
         return self._available
 
     ###############################################################

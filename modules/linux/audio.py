@@ -4,8 +4,9 @@ dependenicy libportaudio2
 
 """
 
-################################################################
+###########################################
 class AgentModule:
+    """Class for audio device support"""
 
     name = "Portaudio module"
     slug = "audio"
@@ -18,16 +19,18 @@ class AgentModule:
     sensor_class = {}
     services = {}
 
-    ###############################################################
-    def __init__(self):
-        self.available = False
+    ##########################################
+    def __init__(self, config: dict):
+        self._config = config
+        self._available = False
         self._state = {}
 
-    ###############################################################
+    ##########################################
     def _setup(self):
         """Setup module"""
         return
 
-    ###############################################################
+    ##########################################
     def available(self):
+        """Return bool for available status"""
         return self._available

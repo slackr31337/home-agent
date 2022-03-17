@@ -192,7 +192,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             _mod_class = getattr(_module, "AgentModule")
 
             try:
-                _class = _mod_class()
+                _class = _mod_class(self._config)
                 LOGGER.info("%s [%s] Loaded %s", LOG_PREFIX, _class.slug, _class.name)
                 self._modules[_class.slug] = _class
                 self._setup_module_sensors(_class.slug)

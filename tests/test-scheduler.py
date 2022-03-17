@@ -1,8 +1,10 @@
+"""UnitTests for scheduler.py"""
+
 import unittest
 import threading
 
 
-from utilities.scheduler import Scheduler
+from scheduler import Scheduler
 from utilities.states import ThreadSafeDict
 
 

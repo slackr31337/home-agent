@@ -15,7 +15,8 @@ class AgentModule:
     sensor_icons = {}
 
     ###############################################################
-    def __init__(self):
+    def __init__(self, config: dict):
+        self._config = config
         self._available = True
 
     ###############################################################

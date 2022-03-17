@@ -1,5 +1,6 @@
 # Home Agent configuration variables
 
+# Home Assistant connector. mqtt or api
 connector: mqtt
 
 # MQTT host, port and auth
@@ -16,9 +17,9 @@ api:
 
 # Scheduler intervals for updating states
 intervals:  
-  metrics: 15   # Send sensor states
-  events: 60    # Check connected and update device
+  sensors: 15   # Send sensor states
   modules: 30   # Module sensor state updates
+  events: 60    # Check connected and update device
   ping: 300     # Connector ping check
 
 # Device name in Home Assistant
