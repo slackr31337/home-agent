@@ -238,15 +238,14 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
                 )
 
             if len(self.ready) == 0:
-                if timeout < 1:
-                    timeout = 1
+                sleep = 1 if timeout < 1 else timeout
                 LOGGER.debug(
-                    "%s [Wait] tasks sleeping: %s. timeout: %s.",
+                    "%s [Wait] tasks sleeping: %s. wait %s.",
                     LOG_PREFIX,
                     len(self.sleeping),
-                    timeout,
+                    sleep,
                 )
-                self._task_event.wait(timeout)
+                self._task_event.wait(sleep)
 
         self.state_running(False)
         LOGGER.info("%s Finished tasks", LOG_PREFIX)

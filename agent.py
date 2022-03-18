@@ -525,7 +525,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             payload,
         )
         now = int(time.time())
-        if command == EVENT or command == STATUS:
+        if command in [EVENT, STATUS]:
             LOGGER.debug("%s Event: %s", LOG_PREFIX, command)
             self._stats[LAST][EVENT] = now
 
