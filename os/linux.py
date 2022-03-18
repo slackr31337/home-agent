@@ -233,5 +233,3 @@ class AgentPlatform:
             _data["battery_plugged_in"] = battery.power_plugged
 
         self._sensors.update(_data)
-
-    ##########################################

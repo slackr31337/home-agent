@@ -203,6 +203,9 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                     LOGGER.warning("%s [%s] Not available", LOG_PREFIX, _class.name)
                     continue
 
+                self._modules[_class.slug] = _class
+                self._setup_module_sensors(_class.slug)
+
             except Exception as err:  # pylint: disable=broad-except
                 LOGGER.error(
                     "%s Failed to load HW module %s. %s", LOG_PREFIX, _name, err

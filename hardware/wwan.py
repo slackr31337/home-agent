@@ -64,6 +64,7 @@ class HWModule:
             for device in devices:
                 _id = f"{device.idVendor}:{device.idProduct}"
                 LOGGER.debug("%s Checking USB device: %s", LOG_PREFIX, _id)
+                LOGGER.debug(device)
                 if _id in WWAN_DEVICES:
                     usb_id = _id
                     break

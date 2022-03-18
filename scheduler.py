@@ -121,6 +121,9 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
         """
         _id = self._get_task_id(func.__name__)
         LOGGER.debug("%s Scheduling task %s in %s second(s)", LOG_PREFIX, _id, sleep)
+        if not isinstance(sleep, int):
+            sleep = 10
+
         deadline = time.time() + sleep
         heapq.heappush(self.sleeping, (deadline, _id, func, args, log, sleep, forever))
         self.set_task_state(_id, func, args, log, deadline, sleep)
