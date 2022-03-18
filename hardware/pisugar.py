@@ -7,7 +7,6 @@ import socket
 
 
 from utilities.log import LOGGER
-from utilities.states import ThreadSafeDict
 from config import Config
 
 LOG_PREFIX = "[PiSugar]"
@@ -61,7 +60,6 @@ class HWModule:
 
     ##########################################
     def __init__(self, config: Config):
-        self._state = ThreadSafeDict()
         self._available = False
         items = config.get(self.slug)
         if items is None:
@@ -81,7 +79,7 @@ class HWModule:
         try:
             self._sock.connect(self._sock_file)
             self._available = True
-            self._sensors()
+            # self._sensors()
 
         except socket.error as err:
             LOGGER.error(
@@ -115,13 +113,12 @@ class HWModule:
         return self._available
 
     ##########################################
-    def get(self, item):
+    def get(self, sensor):
         """Return state for given item"""
-        LOGGER.debug("%s get: %s", LOG_PREFIX, item)
-        with self._state as _state:
-            data = _state.get(item)
-
-        return data
+        LOGGER.debug("%s get: %s", LOG_PREFIX, sensor)
+        parser = self.sensor_parsers.get(sensor)
+        value = self.get_socket_resp(bytes(f"get {sensor}", encoding="utf-8"), parser)
+        return value, None
 
     ##########################################
     def _sensors(self):
@@ -135,16 +132,3 @@ class HWModule:
             LOGGER.debug("%s %s=%s", LOG_PREFIX, sensor, value)
             if value:
                 values[sensor] = value
-
-        self._save(values)
-
-    ##########################################
-    def _save(self, values):
-        """Save GPS data to dict"""
-        if not isinstance(values, dict):
-            return
-
-        with self._state as _state:
-            for key, value in values.items():
-                if value is not None:
-                    _state[key] = value
