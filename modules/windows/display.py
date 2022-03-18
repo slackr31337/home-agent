@@ -11,10 +11,12 @@ from config import HOSTNAME
 LOG_PREFIX = "[display]"
 ################################################################
 class AgentModule:
+    """Agent class for display sensors"""
 
     name = "Windows display module"
     slug = "display"
     platform = ["windows"]
+    _available = False
     services = {}
     sensors = ["display_idle", "screen_capture", "disable_capture", "display_locked"]
     sensors_set = ["disable_capture", "display_locked"]
@@ -41,8 +43,9 @@ class AgentModule:
         "display_locked": "monitor-lock",
     }
     ###############################################################
-    def __init__(self, timeout=300):
+    def __init__(self, config: dict, timeout: int = 300):
         LOGGER.debug("%s init module", LOG_PREFIX)
+        self._config = config
         self._user32 = ctypes.windll.User32
         self._mss = mss()
         self._available = True
@@ -57,6 +60,7 @@ class AgentModule:
 
     ###############################################################
     def available(self):
+        """Return bool value for available status"""
         return self._available
 
     ###############################################################
@@ -83,7 +87,7 @@ class AgentModule:
     ###############################################################
     def display_idle(self):
         """Home Assistant sensor display_idle"""
-        self._state["display_locked"] = bool(self.user32.GetForegroundWindow() == 0)
+        self._state["display_locked"] = bool(self._user32.GetForegroundWindow() == 0)
         self._state["idle_seconds"] = 0
 
         if self._state["idle_seconds"] > self._state["timeout"]:
@@ -124,15 +128,3 @@ class AgentModule:
             imagestring = _image.read()
 
         return bytearray(imagestring), None
-
-    ###############################################################
-    def get(self, _method):
-        """Return state for given method"""
-        LOGGER.debug(_method)
-        return None, None
-
-    ###############################################################
-    def set(self, _item, _value):
-        """Set value for given item. HA switches, etc"""
-        LOGGER.debug("%s set: %s value: %s", LOG_PREFIX, _item, _value)
-        return None

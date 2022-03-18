@@ -7,6 +7,8 @@ plyer; platform_system == 'Windows'
 mss; sys_platform == 'linux' or platform_system == 'Windows'
 wmi; platform_system == 'Windows'
 python-certifi-win32; platform_system == 'Windows'
+pynmeagps
+pyserial
 pyyaml
 hass_client
 requests
@@ -16,3 +18,4 @@ py-cpuinfo
 psutil
 bleson
 ipaddress
+pyusb

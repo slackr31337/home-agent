@@ -19,5 +19,6 @@ if _ver is not None and len(_ver) > 2:
 else:
     raise RuntimeError(f"Unable to find version string in {VERSIONFILE}.")
 
+
 if __name__ == "__main__":
     print(__version__)

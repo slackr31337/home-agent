@@ -4,14 +4,17 @@ After=network.target
 
 [Service]
 Type=simple
-User=user
+User=homeagent
 SyslogIdentifier=homeagent
 Restart=always
 TimeoutStartSec=10
 RestartSec=10
 WorkingDirectory=/opt/home-agent
 EnvironmentFile=/opt/home-agent/scripts/envvars.sh
-ExecStart=/opt/home-agent/env/bin/python3 /opt/home-agent/run.py -s -c /opt/home-agent/secrets.yaml
+Environment="PATH=/opt/home-agent/env/bin:$PATH"
+ExecStart=/opt/home-agent/env/bin/python3 /opt/home-agent/run.py -s -c /opt/home-agent/config.yaml
+
+
 
 [Install]
 WantedBy=multi-user.target

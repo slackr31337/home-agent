@@ -12,7 +12,6 @@ from utilities.log import LOGGER
 from utilities.util import calc_elasped
 from const import SCHEDULER, RUNNING, TASKS, NEXT, LAST, FUNCTION, SLEEP, ARGS, LOG
 
-
 LOG_PREFIX = "[Scheduler]"
 ##########################################
 class Scheduler:  # pylint: disable=too-many-instance-attributes
@@ -24,13 +23,13 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
         signal.signal(signal.SIGINT, self.stop)
         signal.signal(signal.SIGTERM, self.stop)
 
+        self._running = False
         self._task_event = threading.Event()
         self._task_event.clear()
         self.ready = deque()
         self.sleeping = []
         self._state = _state
         self._running_event = _running_event
-        self._running = False
 
         with self._state as _state:
             _state[SCHEDULER] = {RUNNING: False, TASKS: {}}
@@ -51,6 +50,15 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
         """Update task state dict with key, value"""
         with self._state as _state:
             _state[SCHEDULER][TASKS][_id][key] = value
+
+    ##########################################
+    def _get_tasks(self):
+        """Return list of task ids"""
+        task_ids = []
+        with self._state as _state:
+            task_ids = _state[SCHEDULER][TASKS].keys()
+
+        return task_ids
 
     ##########################################
     def set_task_state(self, _id, func, args, log, _next=0, _sleep=0):
@@ -83,13 +91,21 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
                     _state[SCHEDULER][TASKS].pop(_task, None)
 
     ##########################################
+    def _get_task_id(self, name):
+        """Return unique task id"""
+        task_ids = self._get_tasks()
+        _id = None
+        while _id is None and _id not in task_ids:
+            _id = f"{name}_{int(time.time()*1000)}"
+        return _id
+
+    ##########################################
     def run(self, func, args=None, log=False):
         """
         Adds the func to the ready queue immediately
         """
-        _id = f"{func.__name__}_{int(time.time()*1000)}"
-        LOGGER.debug("%s Adding task %s args: %s", LOG_PREFIX, _id, args)
-        self.ready.append((_id, func, args, log))
+        _id = self._get_task_id(func.__name__)
+        self.queue(func, 1, False, args)
         self.set_task_state(_id, func, args, log)
         if self._running:
             self._task_event.set()
@@ -103,8 +119,11 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
         Adds the func to the sleeping queue
         after calcualting deadline
         """
-        _id = f"{func.__name__}_{int(time.time()*1000)}"
+        _id = self._get_task_id(func.__name__)
         LOGGER.debug("%s Scheduling task %s in %s second(s)", LOG_PREFIX, _id, sleep)
+        if not isinstance(sleep, int):
+            sleep = 10
+
         deadline = time.time() + sleep
         heapq.heappush(self.sleeping, (deadline, _id, func, args, log, sleep, forever))
         self.set_task_state(_id, func, args, log, deadline, sleep)
@@ -122,9 +141,9 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
 
         LOGGER.info("%s Stopping", LOG_PREFIX)
         self._running_event.clear()
+        self._task_event.set()
         if self._running:
             self._running = False
-            self._task_event.set()
 
         LOGGER.info("%s Exit", LOG_PREFIX)
 
@@ -135,9 +154,15 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
         """
         LOGGER.info("%s Starting scheduler", LOG_PREFIX)
         self.state_running()
-
+        timeout = 10
         while self.ready or self.sleeping:
-            timeout = None
+            LOGGER.debug(
+                "%s [Loop] tasks sleeping %s. timeout: %s",
+                LOG_PREFIX,
+                len(self.sleeping),
+                timeout,
+            )
+
             if self._task_event.is_set():
                 self.update_state("last_event", time.time())
                 self._task_event.clear()
@@ -146,11 +171,21 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
                 LOGGER.error("%s running is False. Exit", LOG_PREFIX)
                 break
 
-            if not self.ready:
+            if self.sleeping:
+                timeout = min(int(self.sleeping[0][0] - time.time()), 10)
 
+            if not self.ready:
                 while self.sleeping:
-                    timeout = min(int(self.sleeping[0][0] - time.time()), 10)
-                    if self.sleeping[0][0] > time.time():
+                    deadline = self.sleeping[0][0]
+                    timeout = int(deadline - time.time())
+                    LOGGER.debug(
+                        "%s [Sleeping] tasks sleeping %s. timeout: %s",
+                        LOG_PREFIX,
+                        len(self.sleeping),
+                        timeout,
+                    )
+                    timeout = min(timeout, 3)
+                    if deadline > time.time():
                         break
 
                     deadline, _id, func, args, log, sleep, forever = heapq.heappop(
@@ -168,6 +203,12 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
                         )
 
             while self.ready:
+                LOGGER.debug(
+                    "%s [Ready] tasks ready %s. timeout: %s",
+                    LOG_PREFIX,
+                    len(self.ready),
+                    timeout,
+                )
                 start = time.time()
                 _id, func, args, log = self.ready.popleft()
                 self.update_task_state(_id, LAST, time.time())
@@ -186,10 +227,9 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
                         args,
                     )
                     LOGGER.error(err)
-                    _trace = traceback.format_exc()
-                    LOGGER.error(_trace)
+                    LOGGER.error(traceback.format_exc())
 
-                runtime = calc_elasped(start, None, True)
+                runtime = calc_elasped(start, True)
                 self.update_task_state(_id, RUNNING, False)
                 self.update_task_state(_id, "runtime", runtime)
 
@@ -200,8 +240,15 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
                     runtime,
                 )
 
-            if timeout is not None and timeout > 0:
-                self._task_event.wait(timeout)
+            if len(self.ready) == 0:
+                sleep = 1 if timeout < 1 else timeout
+                LOGGER.debug(
+                    "%s [Wait] tasks sleeping: %s. wait %s.",
+                    LOG_PREFIX,
+                    len(self.sleeping),
+                    sleep,
+                )
+                self._task_event.wait(sleep)
 
         self.state_running(False)
         LOGGER.info("%s Finished tasks", LOG_PREFIX)

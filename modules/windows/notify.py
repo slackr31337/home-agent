@@ -2,31 +2,33 @@
 
 import plyer
 
-###########################################
+################################################################
 class AgentModule:
-    """Linux desktop notification support"""
+    """Windows desktop notifications module"""
 
     name = "Notify module"
     slug = "notify"
-    platform = ["linux"]
+    platform = ["windows"]
+    _available = False
     sensors = []
     attribs = {}
     sensor_class = {}
     services = {"notify": ["title", "message"]}
+    sensor_icons = {}
 
-    ##########################################
+    ###############################################################
     def __init__(self, config: dict):
         self._config = config
         self._available = True
 
-    ##########################################
+    ###############################################################
     def available(self):
         """Return bool for available status"""
         return self._available
 
-    ##########################################
+    ###############################################################
     def notify(self, data):
-        """Display notification on desktop"""
+        """Create desktop notification with message"""
         title = data.get("title", "HomeAgent Notification")
         message = data.get("message", "")
         timeout = int(data.get("timeout", 1200))

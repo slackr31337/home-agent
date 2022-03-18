@@ -11,8 +11,10 @@ from config import HOSTNAME
 
 LOG_PREFIX = "[display]"
 STATE_MAP = {True: "ON", False: "OFF"}
-################################################################
+###########################################
 class XScreenSaverInfo(ctypes.Structure):
+    """Class used to get X screen status"""
+
     _fields_ = [
         ("window", ctypes.c_ulong),
         ("state", ctypes.c_int),
@@ -23,12 +25,14 @@ class XScreenSaverInfo(ctypes.Structure):
     ]
 
 
-################################################################
+###########################################
 class AgentModule:
+    """Display class"""
 
     name = "X11 display module"
     slug = "display"
     platform = ["linux"]
+    _available = False
     services = {}
     sensors = ["display_idle", "screen_capture", "disable_capture", "display_locked"]
     attribs = {}
@@ -58,9 +62,10 @@ class AgentModule:
         "display_locked": "monitor-lock",
     }
 
-    ###############################################################
-    def __init__(self, timeout=300):
+    ##########################################
+    def __init__(self, config: dict, timeout: int = 300):
         LOGGER.debug("%s init module", LOG_PREFIX)
+        self._config = config
         self._available = False
         self._temp_file = f"{tempfile.gettempdir()}/{HOSTNAME}_screen_capture.png"
         self._state = {
@@ -70,66 +75,68 @@ class AgentModule:
             "display_locked": False,
             "disable_capture": False,
         }
+        self._libx11 = None
         self._setup()
 
-    ###############################################################
+    ##########################################
     def _setup(self):
         """Setup libX11"""
 
-        XScreenSaverInfo_p = ctypes.POINTER(XScreenSaverInfo)
+        xscreensaver_info_pointer = ctypes.POINTER(XScreenSaverInfo)
         display_p = ctypes.c_void_p
         xid = ctypes.c_ulong
         c_int_p = ctypes.POINTER(ctypes.c_int)
-        libX11path = ctypes.util.find_library("X11")
+        libx11path = ctypes.util.find_library("X11")
 
-        if libX11path is None:
+        if libx11path is None:
             raise OSError("libX11 could not be found.")
 
-        self._libX11 = ctypes.cdll.LoadLibrary(libX11path)
-        self._libX11.XOpenDisplay.restype = display_p
-        self._libX11.XOpenDisplay.argtypes = (ctypes.c_char_p,)
-        self._libX11.XDefaultRootWindow.restype = xid
-        self._libX11.XDefaultRootWindow.argtypes = (display_p,)
+        self._libx11 = ctypes.cdll.LoadLibrary(libx11path)
+        self._libx11.XOpenDisplay.restype = display_p
+        self._libx11.XOpenDisplay.argtypes = (ctypes.c_char_p,)
+        self._libx11.XDefaultRootWindow.restype = xid
+        self._libx11.XDefaultRootWindow.argtypes = (display_p,)
 
-        libXsspath = ctypes.util.find_library("Xss")
-        if libXsspath is None:
+        libxss_path = ctypes.util.find_library("Xss")
+        if libxss_path is None:
             raise OSError("libXss could not be found.")
 
-        self._libXss = ctypes.cdll.LoadLibrary(libXsspath)
-        self._libXss.XScreenSaverQueryExtension.argtypes = display_p, c_int_p, c_int_p
-        self._libXss.XScreenSaverAllocInfo.restype = XScreenSaverInfo_p
-        self._libXss.XScreenSaverQueryInfo.argtypes = (
+        self._libxss = ctypes.cdll.LoadLibrary(libxss_path)
+        self._libxss.XScreenSaverQueryExtension.argtypes = display_p, c_int_p, c_int_p
+        self._libxss.XScreenSaverAllocInfo.restype = xscreensaver_info_pointer
+        self._libxss.XScreenSaverQueryInfo.argtypes = (
             display_p,
             xid,
-            XScreenSaverInfo_p,
+            xscreensaver_info_pointer,
         )
 
-        self._dpy_p = self._libX11.XOpenDisplay(None)
+        self._dpy_p = self._libx11.XOpenDisplay(None)
         if self._dpy_p is None:
             raise OSError("Could not open X Display.")
 
         _event_basep = ctypes.c_int()
         _error_basep = ctypes.c_int()
         if (
-            self._libXss.XScreenSaverQueryExtension(
+            self._libxss.XScreenSaverQueryExtension(
                 self._dpy_p, ctypes.byref(_event_basep), ctypes.byref(_error_basep)
             )
             == 0
         ):
             raise OSError("XScreenSaver Extension not available on display.")
 
-        self._xss_info_p = self._libXss.XScreenSaverAllocInfo()
+        self._xss_info_p = self._libxss.XScreenSaverAllocInfo()
         if self._xss_info_p is None:
             raise OSError("XScreenSaverAllocInfo: Out of Memory.")
 
-        self._rootwindow = self._libX11.XDefaultRootWindow(self._dpy_p)
+        self._rootwindow = self._libx11.XDefaultRootWindow(self._dpy_p)
         self._available = True
 
-    ###############################################################
+    ##########################################
     def available(self):
+        """Return bool for available status"""
         return self._available
 
-    ###############################################################
+    ##########################################
     def get(self, _method):
         """Return state for given method"""
         LOGGER.debug("%s get: %s", LOG_PREFIX, _method)
@@ -144,7 +151,7 @@ class AgentModule:
         LOGGER.debug("%s module sensor %s %s", LOG_PREFIX, _method, _value)
         return _value, None
 
-    ###############################################################
+    ##########################################
     def set(self, _item, _value):
         """Set value for given item. HA switches, etc"""
         LOGGER.debug("%s set: %s value: %s", LOG_PREFIX, _item, _value)
@@ -152,11 +159,11 @@ class AgentModule:
             self._state[_item] = bool(_value == "ON")
         return _value
 
-    ###############################################################
+    ##########################################
     def display_idle(self):
         """Home Assistant sensor display_idle"""
         if (
-            self._libXss.XScreenSaverQueryInfo(
+            self._libxss.XScreenSaverQueryInfo(
                 self._dpy_p, self._rootwindow, self._xss_info_p
             )
             == 0
@@ -175,7 +182,7 @@ class AgentModule:
             "timeout": self._state["timeout"],
         }
 
-    ###############################################################
+    ##########################################
     def screen_capture(self):
         """Home Assistant camera with screenshot"""
         if self._state["display_idle"] or self._state["disable_capture"]:
