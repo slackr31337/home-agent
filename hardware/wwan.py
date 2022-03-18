@@ -62,9 +62,8 @@ class HWModule:
         for bus in usb.busses():
             devices = bus.devices
             for device in devices:
-                _id = f"{device.idVendor}:{device.idProduct}"
+                _id = f"{device.idVendor:04x}:{device.idProduct:04x}"
                 LOGGER.debug("%s Checking USB device: %s", LOG_PREFIX, _id)
-                LOGGER.debug(device)
                 if _id in WWAN_DEVICES:
                     usb_id = _id
                     break
@@ -78,7 +77,7 @@ class HWModule:
         self.serial_dev = device.get("device")
 
         gps_dev = device.get("gps")
-        self._config.gps.dev = gps_dev
+        self._config.gps = {"dev": gps_dev}
         self._available = True
 
     ##########################################
