@@ -10,11 +10,11 @@ import pathlib
 import glob
 import json
 import ipaddress
-from scheduler import Scheduler
 
 
 from utilities.log import LOGGER
 from utilities.util import calc_elasped
+from scheduler import Scheduler
 from config import ONLINE_ATTRIB, Config
 from const import (
     ATTRIBS,
@@ -58,11 +58,11 @@ from const import (
 )
 
 LOG_PREFIX = "[HomeAgent]"
-###############################################################
+##########################################
 class HomeAgent:  # pylint:disable=too-many-instance-attributes
     """Class to collect and report endpoint data"""
 
-    ###########################################################
+    ##########################################
     def __init__(
         self,
         config: Config,
@@ -98,7 +98,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         self._connector_module()
         self._load_modules()
 
-    ###########################################################
+    ##########################################
     def _os_module(self):
         """Load OS module"""
 
@@ -126,7 +126,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         _mod_class = getattr(_module, "AgentPlatform")
         self.platform_class = _mod_class()
 
-    ###########################################################
+    ##########################################
     def _connector_module(self):
         """Load connector module"""
 
@@ -171,7 +171,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         )
         self._ha_connected = self._connector.connected()
 
-    ###########################################################
+    ##########################################
     def _load_hardware(self):
         """Load hardware modules"""
         hw_dir = os.path.join(
@@ -211,9 +211,8 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                     "%s Failed to load HW module %s. %s", LOG_PREFIX, _name, err
                 )
                 LOGGER.debug(traceback.format_exc())
-                continue
 
-    ###########################################################
+    ##########################################
     def _load_modules(self):
         """Load sensor modules"""
 
@@ -260,7 +259,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             self._setup_module_sensors(_class.slug)
             self._setup_module_services(_class.slug)
 
-    ###########################################################
+    ##########################################
     def stop(self):
         """Send offline message and stop connector"""
 
@@ -278,7 +277,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         LOGGER.info("%s Exit", LOG_PREFIX)
         sys.exit()
 
-    ###########################################################
+    ##########################################
     def start(self):
         """Init system info and sensors"""
 
@@ -344,7 +343,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             )
             self._conn_reset()
 
-    ###########################################################
+    ##########################################
     def _add_sensor_prefixes(self):
         """Add sensors that match prfixes"""
         prefix_sensors = self._config.sensors.get("prefix", [])
@@ -382,7 +381,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                 value = self._config.sensors.prefix_icons.get(item[0])
                 self._config.sensors.icons[sensor] = value
 
-    ###########################################################
+    ##########################################
     def get_identifiers(self):
         """Get a unique identifier for this device"""
 
@@ -398,7 +397,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
 
         LOGGER.info("%s Device identifier: %s", LOG_PREFIX, _id)
 
-    ###########################################################
+    ##########################################
     def get_connections(self):
         """Get connection identifiers for this device"""
 
@@ -410,7 +409,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         self._config.device.connections = _conn
         LOGGER.info("%s Device connections: %s", LOG_PREFIX, _conn)
 
-    ###########################################################
+    ##########################################
     def metrics(self):
         """Run tasks to publish metrics"""
 
@@ -420,7 +419,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         if self._ha_connected:
             self.update_sensors()
 
-    ###########################################################
+    ##########################################
     def modules(self):
         """Run tasks to publish metrics"""
         if not self._ha_connected:
@@ -435,7 +434,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                 self.states[_sensor] = _value
                 self.attribs[_sensor] = _attrib
 
-    ###########################################################
+    ##########################################
     def events(self):
         """Run tasks to publish events"""
 
@@ -447,7 +446,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             self.update_sensors(True)
             self.update_device_tracker()
 
-    ###########################################################
+    ##########################################
     def get_sysinfo(self):
         """Collect system info"""
 
@@ -456,7 +455,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         self.states.update(states)
         self.attribs.update(attribs)
 
-    ###########################################################
+    ##########################################
     def _save_state(self):
         """Write state dict to file"""
         _file = f"{self._config.dir}/state.json"
@@ -471,7 +470,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                 _state[STATE].pop("screen_capture")
             _states.write(json.dumps(_state, default=str, indent=4))
 
-    ###########################################################
+    ##########################################
     def _load_state(self):
         """Write state dict to file"""
         _file = f"{self._config.dir}/state.json"
@@ -491,7 +490,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             LOGGER.error("%s Failed to load states from json", LOG_PREFIX)
             LOGGER.error(err)
 
-    ###########################################################
+    ##########################################
     def message_send(self, _data):
         """Send message to Home Assistant using connector"""
         if not self._ha_connected:
@@ -506,14 +505,14 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
 
         return self._connector.publish(_topic, _payload)
 
-    ###########################################################
+    ##########################################
     def message_receive(self, _data):
         """Receive message from Home Assistant using connector"""
 
         LOGGER.debug("%s Message received. %s", LOG_PREFIX, _data)
         self.process_cmd(_data)
 
-    ###########################################################
+    ##########################################
     def process_cmd(self, _data):
         """Process message from Home Assistant"""
 
@@ -580,7 +579,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             except Exception as err:  # pylint: disable=broad-except
                 LOGGER.error("%s Module command error. %s", LOG_PREFIX, err)
 
-    ###########################################################
+    ##########################################
     def _publish_online(self, _state="online"):
         """Publish online status"""
 
@@ -592,7 +591,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         ):
             self._ha_connected = False
 
-    ###########################################################
+    ##########################################
     def _publish_device(self):
         """Publish device config"""
 
@@ -618,14 +617,13 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         self.message_send(_data)
         self._publish_online()
 
-    ###########################################################
+    ##########################################
     def _setup_module_services(self, _module):
         """Configure services from loaded module"""
-
-        _services = self._modules[_module].services
-        if not _services:
+        if not hasattr(self._modules[_module], "services"):
             return
 
+        _services = self._modules[_module].services
         for _service, items in tuple(_services.items()):
             LOGGER.info(
                 "%s Setup service %s for module %s (%s)",
@@ -638,13 +636,16 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             topic = f"{self._config.device.topic}/{_service}"
             self._connector.subscribe_to(topic)
 
-    ###########################################################
-    def _setup_module_sensors(self, _module):
+    ##########################################
+    def _setup_module_sensors(self, _module: str):
         """Configure sensors from loaded module"""
 
         mod_class = self._modules[_module]
         if not hasattr(mod_class, "sensors"):
             return
+
+        if hasattr(mod_class, "sensor_class"):
+            self._config.sensors.sensor_class.update(mod_class.sensor_class)
 
         if hasattr(mod_class, "sensor_types"):
             self._config.sensors.type.update(mod_class.sensor_types)
@@ -666,9 +667,8 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                 "%s Setup sensor %s for module %s", LOG_PREFIX, _sensor, _module
             )
             self.sensors[_sensor] = {}
-
-            _attrib = mod_class.attribs.get(_sensor)
-            if _attrib:
+            if hasattr(mod_class, "attribs"):
+                _attrib = mod_class.attribs.get(_sensor)
                 self._config.sensors.attrib[_sensor] = _attrib
                 LOGGER.debug("%s %s: %s", LOG_PREFIX, _sensor, _attrib)
 
@@ -676,7 +676,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                 LOGGER.info("%s Setup callback %s.set()", LOG_PREFIX, _sensor)
                 self._callback[_sensor] = mod_class.set
 
-    ###########################################################
+    ##########################################
     def _setup_sensors(self):
         """Publish sensor config to MQTT broker"""
 
@@ -708,7 +708,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                 LOGGER.info("%s Connector subscribe: %s", LOG_PREFIX, _topic)
                 self._connector.subscribe_to(_topic)
 
-    ###########################################################
+    ##########################################
     def update_sensors(self, _send_nochange=False, _sensors=None):
         """Send sensor data to MQTT broker"""
 
@@ -763,7 +763,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
 
         LOGGER.debug("%s Done updating sensors", LOG_PREFIX)
 
-    ###########################################################
+    ##########################################
     def _setup_device_tracker(self):
         """Publish device_tracker to MQTT broker"""
 
@@ -773,11 +773,15 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             LOG_PREFIX,
             f"{self._config.hostname}_location",
         )
+        if "location" in self.states:
+            source_type = "gps"
+        else:
+            source_type = ROUTER
 
         _data[PAYLOAD].update(
             {
                 NAME: f"{self._config.hostname}_location",
-                SOURCE_TYPE: ROUTER,
+                SOURCE_TYPE: source_type,
                 AVAILABILITY_TOPIC: self._config.device.availability,
             }
         )
@@ -785,11 +789,11 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             _data[PAYLOAD].update({NAME: self._config.host.friendly_name})
             self.message_send(_data)
 
-    ###########################################################
+    ##########################################
     def update_device_tracker(self):
         """Publish device_tracker to MQTT broker"""
 
-        unique_id = f"{self.states[HOSTNAME]}_location"
+        unique_id = f"{self.states.get(HOSTNAME).lower()}_location"
         LOGGER.debug("%s Running device_tracker.%s update", LOG_PREFIX, unique_id)
 
         location = "not_home"
@@ -797,9 +801,9 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
 
             network = ipaddress.ip_network(_net)
             if network.version != 4:
-                ip_str = self.states["ip6_address"]
+                ip_str = self.states.get("ip6_address")
             else:
-                ip_str = self.states[IP_ADDRESS]
+                ip_str = self.states.get(IP_ADDRESS)
 
             addr = ipaddress.ip_address(ip_str)
             if addr in network:
@@ -809,6 +813,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                 location = self._config.locations.get(_loc)
 
         _topic = f"{self._config.prefix.discover}/device_tracker/{unique_id}/state"
+
         self.message_send({TOPIC: _topic, PAYLOAD: f"{location}"})
 
         payload = {
@@ -827,6 +832,10 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         battery_level = int(self.states.get(BATTERY_PERCENT, 0))
         if battery_level > 0:
             payload[BATTERY_LEVEL] = str(battery_level)
+
+        if "location" in self.attribs:
+            payload[SOURCE_TYPE] = "gps"
+            payload.update(self.attribs.get("location"))
 
         if len(payload) > 0:
             _topic = f"{self._config.prefix.discover}/device_tracker/{unique_id}/attrib"

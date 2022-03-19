@@ -20,7 +20,8 @@ def get_parse_str(resp: bytes) -> str:
 
 def get_parse_float(resp: bytes) -> float:
     """Parse float from socket bytes"""
-    return float(get_parse_str(resp))
+    value = float(get_parse_str(resp))
+    return float(f"{value:.2f}")
 
 
 def get_parse_int(resp: bytes) -> int:
@@ -42,7 +43,6 @@ class HWModule:
     platform = ["linux"]
     hardware = "raspberrypi"
     sensor_parsers = {
-        "model": get_parse_str,
         "battery": get_parse_float,
         "battery_i": get_parse_float,
         "battery_v": get_parse_float,
@@ -55,8 +55,40 @@ class HWModule:
         "safe_shutdown_level": get_parse_float,
         "safe_shutdown_delay": get_parse_int,
     }
-    sensors = sensor_parsers.keys()
+    sensors = [slug]
+    for sensor in sensor_parsers:
+        sensors.append(f"{slug}_{sensor}")
+
     attribs = {}
+    sensor_class = {
+        "pisugar_battery": {
+            "device_class": "battery",
+            "state_class": "measurement",
+            "unit_of_measurement": "%",
+        },
+        "pisugar_battery_v": {
+            "device_class": "voltage",
+            "state_class": "measurement",
+            "unit_of_measurement": "V",
+        },
+        "pisugar_battery_i": {
+            "device_class": "current",
+            "state_class": "measurement",
+            "unit_of_measurement": "A",
+        },
+        "pisugar_rtc_alarm_time": {"device_class": "timestamp"},
+        "pisugar_battery_power_plugged": {"device_class": "plug"},
+    }
+    sensor_types = {
+        "pisugar_battery_charging": "binary_sensor",
+        "pisugar_battery_power_plugged": "binary_sensor",
+        "pisugar_battery_allow_charging": "binary_sensor",
+        "pisugar_rtc_alarm_enabled": "binary_sensor",
+    }
+    sensor_icons = {
+        "pisugar_battery_charging": "battery-charging",
+        "pisugar_battery_power_plugged": "power-plug",
+    }
 
     ##########################################
     def __init__(self, config: Config):
@@ -79,7 +111,6 @@ class HWModule:
         try:
             self._sock.connect(self._sock_file)
             self._available = True
-            # self._sensors()
 
         except socket.error as err:
             LOGGER.error(
@@ -113,22 +144,28 @@ class HWModule:
         return self._available
 
     ##########################################
-    def get(self, sensor):
-        """Return state for given item"""
-        LOGGER.debug("%s get: %s", LOG_PREFIX, sensor)
+    def get(self, item: str = None):
+        """Collect hardware info from serial interface"""
+        LOGGER.info("%s get() %s", LOG_PREFIX, item)
+        if item == self.slug:
+            return self._get_sensor("model", get_parse_str), None
+
+        sensor = item.split(f"{self.slug}_")[1]
         parser = self.sensor_parsers.get(sensor)
-        value = self.get_socket_resp(bytes(f"get {sensor}", encoding="utf-8"), parser)
+        value = self._get_sensor(sensor, parser)
         return value, None
+
+    ##########################################
+    def _get_sensor(self, sensor, parser):
+        """Fetch data from socket"""
+        return self.get_socket_resp(bytes(f"get {sensor}", encoding="utf-8"), parser)
 
     ##########################################
     def _sensors(self):
         """Fetch PiSugar device sensors"""
         values = {}
         for sensor, parser in self.sensor_parsers.items():
-            LOGGER.debug("%s get %s", LOG_PREFIX, sensor)
-            value = self.get_socket_resp(
-                bytes(f"get {sensor}", encoding="utf-8"), parser
-            )
+            value = self._get_sensor(sensor, parser)
             LOGGER.debug("%s %s=%s", LOG_PREFIX, sensor, value)
             if value:
                 values[sensor] = value
