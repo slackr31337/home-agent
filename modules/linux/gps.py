@@ -84,6 +84,7 @@ class Location:
 
     ##########################################
     def __init__(self, ready, device, speed=4800):
+        self._metric = False
         self._ready = ready
         self._tty = device
         self._speed = speed
@@ -160,9 +161,12 @@ class Location:
 
             try:
                 for (_, msg) in self._nmea:
-                    # print(f"GPS: {msg}")
                     if msg.msgID == "GGA":
-                        self._process_msg(msg)
+                        self._process_gga(msg)
+                        self._count += 1
+
+                    elif msg.msgID == "VTG":
+                        self._process_vtg(msg)
                         self._count += 1
 
             except (nme.NMEAMessageError, nme.NMEATypeError, nme.NMEAParseError) as err:
@@ -178,8 +182,8 @@ class Location:
         LOGGER.info("%s Exit NMEA reader", LOG_PREFIX)
 
     ##########################################
-    def _process_msg(self, msg):
-        """Process NMEA message"""
+    def _process_gga(self, msg):
+        """Process NMEA GPGGA message"""
 
         if msg.quality == 1:
             fix = "3D Fix"
@@ -189,15 +193,32 @@ class Location:
 
         else:
             fix = "No fix"
+            self._save_state(fix=fix, sats=msg.numSV)
+            return
+
+        altitude = msg.alt
+        gps_accuracy = float(msg.HDOP * 2.5)
+        if not self._metric:
+            altitude = float(altitude * 3.281)
+            gps_accuracy = float(gps_accuracy * 3.281)
 
         self._save_state(
             latitude=msg.lat,
             longitude=msg.lon,
-            altitude=msg.alt,
+            altitude=altitude,
             fix=fix,
-            hdop=msg.HDOP,
+            gps_accuracy=gps_accuracy,
             sats=msg.numSV,
         )
+
+    ##########################################
+    def _process_vtg(self, msg):
+        """Process NMEA GPVTG message"""
+        speed = float(msg.sogk)
+        if not self._metric:
+            speed = f"{float(speed / 1.609):.1f}"
+
+        self._save_state(speed=float(speed), course=msg.cogt)
 
     ##########################################
     def _save_state(self, **kwargs):
@@ -213,9 +234,9 @@ class Location:
         with self._state as _state:
             data = _state.copy()
 
-        if "gps_accuracy" not in data:
-            data["gps_accuracy"] = 3
-            data["vertical_accuracy"] = 3
-            data["speed"] = 0
+        # if "gps_accuracy" not in data:
+        #    data["gps_accuracy"] = 3
+        #    data["vertical_accuracy"] = 3
+        #    data["speed"] = 0
 
         return data

@@ -727,7 +727,10 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                 LOGGER.debug("%s %s state is None", LOG_PREFIX, sensor)
                 continue
 
-            if isinstance(_state, list) and len(_state) == 1:
+            if isinstance(_state, str) and len(_state) > 0:
+                _state = _state.strip()
+
+            elif isinstance(_state, list) and len(_state) == 1:
                 _state = next(iter(_state), [])
 
             elif isinstance(_state, int) and int(_state) not in range(0, 10000):
