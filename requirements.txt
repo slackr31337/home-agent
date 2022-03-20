@@ -19,3 +19,4 @@ psutil
 bleson
 ipaddress
 pyusb
+smbus2

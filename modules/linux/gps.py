@@ -21,22 +21,11 @@ class AgentModule:
     name = "GPS module"
     slug = "gps"
     platform = ["linux"]
-    sensors = [
-        "latitude",
-        "longitude",
-        "altitude",
-        "hdop",
-        "fix",
-        "gps_accuracy",
-        "vertical_accuracy",
-    ]
+    sensors = ["location"]
     attribs = {}
-    sensor_types = {}
     sensor_attribs = {}
     sensor_class = {}
     sensor_icons = {}
-    sensors_set = []
-    services = {}
     _available = False
 
     ##########################################
@@ -70,28 +59,22 @@ class AgentModule:
     ##########################################
     def get(self, item):
         """Return state for given method"""
-        LOGGER.debug("%s get: %s", LOG_PREFIX, item)
+        # LOGGER.debug("%s get: %s", LOG_PREFIX, item)
 
         if hasattr(self, item):
             _func = getattr(self, item)
             LOGGER.debug("%s module function: %s()", LOG_PREFIX, _func.__name__)
             return _func()
 
-        location = self._location.get_location()
-        return location.get(item), None
-
-        # value, attribs = self._state.get(item)
-        # if value in STATE_MAP:
-        #    value = STATE_MAP.get(value)
-
-        # LOGGER.debug("%s module sensor %s %s", LOG_PREFIX, item, value)
-        # return value, attribs
+        location = self._location.state()
+        value = location.get(item)
+        LOGGER.debug("%s get: %s value: %s", LOG_PREFIX, item, value)
+        return value, None
 
     ##########################################
     def location(self):
         """Get location and fix"""
-        location = self._location.get_location()
-        LOGGER.info("%s location: %s", LOG_PREFIX, location)
+        location = self._location.state()
         return location.get("fix"), location
 
 
@@ -138,7 +121,7 @@ class Location:
 
         self._ready.clear()
         self._nmea = None
-        if not os.path.exists(self._tty):
+        if not self._tty or not os.path.exists(self._tty):
             LOGGER.error("%s Unable to open gps device: %s", LOG_PREFIX, self._tty)
             time.sleep(0.3)
             self._serial.close()
@@ -177,6 +160,7 @@ class Location:
 
             try:
                 for (_, msg) in self._nmea:
+                    # print(f"GPS: {msg}")
                     if msg.msgID == "GGA":
                         self._process_msg(msg)
                         self._count += 1
@@ -195,24 +179,24 @@ class Location:
 
     ##########################################
     def _process_msg(self, msg):
-        # print(f"GPS: {msg}")
-        tim = msg.time
+        """Process NMEA message"""
+
         if msg.quality == 1:
-            fix = "3d"
+            fix = "3D Fix"
 
         elif msg.quality == 2:
-            fix = "2d"
+            fix = "2D Fix"
 
         else:
             fix = "No fix"
 
         self._save_state(
-            time=tim,
             latitude=msg.lat,
             longitude=msg.lon,
             altitude=msg.alt,
             fix=fix,
             hdop=msg.HDOP,
+            sats=msg.numSV,
         )
 
     ##########################################
@@ -224,7 +208,7 @@ class Location:
                     _state[key] = value
 
     ##########################################
-    def get_location(self):
+    def state(self):
         """Return dict with location data"""
         with self._state as _state:
             data = _state.copy()

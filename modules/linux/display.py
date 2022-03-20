@@ -55,7 +55,6 @@ class AgentModule:
             "command_topic": "~/set",
         },
     }
-    sensor_class = {}
     sensor_icons = {
         "display_idle": "monitor",
         "disable_capture": "monitor-eye",
