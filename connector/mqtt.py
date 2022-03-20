@@ -153,9 +153,9 @@ class Connector(mqtt.Client):
                 self._config.mqtt.port,
             )
 
-            for _topic in self._subscribe:
-                LOGGER.info("%s Subscribing to %s", LOG_PREFIX, _topic)
-                self._mqttc.subscribe(_topic, 0)
+            for topic in self._subscribe:
+                LOGGER.info("%s Subscribing to %s", LOG_PREFIX, topic)
+                self._mqttc.subscribe(topic, 0)
 
             self._connected_event.set()
         else:
@@ -256,12 +256,11 @@ class Connector(mqtt.Client):
         )
 
     ##########################################
-    def subscribe_to(self, _topic=None):
+    def subscribe_to(self, topic=None):
         """Add topic to subscribe"""
-        self._subscribe.append(_topic)
-
-        if self.connected is True:
-            self._mqttc.subscribe(_topic, 0)
+        LOGGER.debug("%s Subscribe to %s", LOG_PREFIX, topic)
+        self._subscribe.append(topic)
+        self._mqttc.subscribe(topic, 0)
 
     ##########################################
     def publish(self, _topic, payload, qos=1, retain=False):

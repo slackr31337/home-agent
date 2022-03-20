@@ -25,8 +25,9 @@ class RaspberryPi:
         }
         for key, path in keys.items():
             with open(path, encoding="utf-8") as file:
-                value = file.readline()
-            setattr(self, f"_{key}", str(value))
+                value = file.read()
+                value = str(value).rstrip(" \t\r\n\0")
+            setattr(self, f"_{key}", value)
 
     ##########################################
     def manufacturer(self):
@@ -36,7 +37,7 @@ class RaspberryPi:
     ##########################################
     def model(self):
         """Return str"""
-        return self._model.split(self._manufacturer)[1]
+        return str(self._model.split(self._manufacturer)[1]).strip()
 
     ##########################################
     def serial_number(self):

@@ -94,8 +94,8 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             self.sensors = self._config.sensors.get(PUBLISH)
 
         self._os_module()
-        self._load_hardware()
         self._connector_module()
+        self._load_hardware()
         self._load_modules()
 
     ##########################################
@@ -432,7 +432,8 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             for _sensor in _sensors:
                 _value, _attrib = self._modules[slug].get(_sensor)
                 self.states[_sensor] = _value
-                self.attribs[_sensor] = _attrib
+                if _attrib:
+                    self.attribs[_sensor] = _attrib
 
     ##########################################
     def events(self):
@@ -644,17 +645,17 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         if not hasattr(mod_class, "sensors"):
             return
 
-        if hasattr(mod_class, "sensor_class"):
-            self._config.sensors.sensor_class.update(mod_class.sensor_class)
+        sensor_attr = {
+            "sensor_class": self._config.sensors.sensor_class,
+            "sensor_types": self._config.sensors.type,
+            "sensor_attribs": self._config.sensors.attrib,
+            "sensor_icons": self._config.sensors.icons,
+        }
 
-        if hasattr(mod_class, "sensor_types"):
-            self._config.sensors.type.update(mod_class.sensor_types)
-
-        if hasattr(mod_class, "sensor_attribs"):
-            self._config.sensors.attrib.update(mod_class.sensor_attribs)
-
-        if hasattr(mod_class, "sensor_icons"):
-            self._config.sensors.icons.update(mod_class.sensor_icons)
+        for attr, conf in sensor_attr.items():
+            if hasattr(mod_class, attr):
+                items = getattr(mod_class, attr)
+                conf.update(items)
 
         if hasattr(mod_class, "sensors_set"):
             _sensors_set = mod_class.sensors_set
@@ -705,7 +706,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
 
             if sensor in self._callback:
                 _topic = _data[TOPIC].split("/state", 2)[0] + "/set"
-                LOGGER.info("%s Connector subscribe: %s", LOG_PREFIX, _topic)
+                LOGGER.info("%s Sensor set subscription: %s", LOG_PREFIX, _topic)
                 self._connector.subscribe_to(_topic)
 
     ##########################################
