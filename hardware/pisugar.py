@@ -146,7 +146,7 @@ class HWModule:
     ##########################################
     def get(self, item: str = None):
         """Collect hardware info from serial interface"""
-        LOGGER.info("%s get() %s", LOG_PREFIX, item)
+        LOGGER.debug("%s get() %s", LOG_PREFIX, item)
         if item == self.slug:
             return self._get_sensor("model", get_parse_str), None
 

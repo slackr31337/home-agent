@@ -75,7 +75,6 @@ class AgentModule:
     def location(self):
         """Get location and fix"""
         location = self._location.state()
-        LOGGER.info("%s location: %s", LOG_PREFIX, location)
         return location.get("fix"), location
 
 
@@ -183,10 +182,10 @@ class Location:
         """Process NMEA message"""
 
         if msg.quality == 1:
-            fix = "3d"
+            fix = "3D Fix"
 
         elif msg.quality == 2:
-            fix = "2d"
+            fix = "2D Fix"
 
         else:
             fix = "No fix"

@@ -20,6 +20,7 @@ AT_COMMANDS_HARDWARE = {
     "model": r"AT+CGMM",
     "version": r"AT+CGMR",
 }
+AT_COMMANDS_GPS = [r"AT$GPSRST", r"AT$GPSNMUN=2,1,1,1,1,1,1", r"AT$GPSP=1"]
 STATIC_SENSORS = ["iemi", "serial", "manufacturer", "model", "version"]
 AT_MAP = {
     "status": {
@@ -136,6 +137,7 @@ class HWModule:
                 LOGGER.error("%s Failed to open serial %s", LOG_PREFIX, self.serial_dev)
                 return
 
+            self._enable_gps()
             self._load_state()
 
         except serial.serialutil.SerialException as err:
@@ -175,7 +177,7 @@ class HWModule:
     ##########################################
     def get(self, item: str = None):
         """Collect hardware info from serial interface"""
-        LOGGER.info("%s get() %s", LOG_PREFIX, item)
+        LOGGER.debug("%s get() %s", LOG_PREFIX, item)
         if item == self.slug:
             return self._device.get("model"), None
 
@@ -192,7 +194,7 @@ class HWModule:
         LOGGER.debug("%s result: %s", LOG_PREFIX, value)
 
         offset = AT_VALUE.get(sensor)
-        if offset is not None:
+        if offset is not None and "," in value:
             value = str(value).split(",", maxsplit=10)[offset]
 
         value_map = AT_MAP.get(sensor)
@@ -204,6 +206,13 @@ class HWModule:
 
         LOGGER.debug("%s %s=%s", LOG_PREFIX, sensor, value)
         return value, None
+
+    ##########################################
+    def _enable_gps(self):
+        """Send AT commands to enable GPS"""
+        for command in AT_COMMANDS_GPS:
+            resp = self._at_cmd(command)
+            LOGGER.debug("%s GPS %s %s", LOG_PREFIX, command, resp)
 
     ##########################################
     def _load_state(self):
