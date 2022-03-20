@@ -20,7 +20,7 @@ AT_COMMANDS_HARDWARE = {
     "model": r"AT+CGMM",
     "version": r"AT+CGMR",
 }
-AT_COMMANDS_GPS = [r"AT$GPSRST", r"AT$GPSNMUN=2,1,1,1,1,1,1", r"AT$GPSP=1"]
+AT_COMMANDS_GPS = [r"AT$GPSNMUN=2,1,1,1,1,1,1", r"AT$GPSP=1"]
 STATIC_SENSORS = ["iemi", "serial", "manufacturer", "model", "version"]
 AT_MAP = {
     "status": {
