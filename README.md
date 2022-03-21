@@ -4,7 +4,16 @@ This is an endpoint agent for Windows and Linux for collecting metrics for Home-
 
 ## Description
 
-I wanted to have the ability to interact and connect with my computers to Home-Assistant (https://www.home-assistant.io/). Collect sesnor data and trigger notifications right on my desktop. 
+I wanted to have the ability to connect my servers and computers to [Home-Assistant](https://www.home-assistant.io/). Collect sesnor data, call services and trigger notifications right on my desktop. 
+
+Test endpoints:
+  - HP Laptop
+  - ASUS Server
+  - Raspberry Pi 3 (My Car)
+      - GeeekPi 4 Channel Relay Board HAT [link](https://wiki.52pi.com/index.php/EP-0099)
+      - Sixfab 4G LTE/GPS HAT [link](https://sixfab.com/hardware/)
+      - Pisugar 2 Pro UPS/RTC [link](https://github.com/PiSugar/PiSugar)
+      - USB to CAN module [amazon link](https://www.amazon.com/gp/product/B07P9JGXXB/)
 
 
 ## Connectors
