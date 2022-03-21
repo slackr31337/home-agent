@@ -70,7 +70,7 @@ git clone https://github.com/slackr31337/home-agent.git
 
 - Add system user
 ```
-sudo adduser --system --home ${DIR} --no-create-home --disabled-login homeagent
+sudo adduser --system --home /opt/home-agent --no-create-home --disabled-login homeagent
 sudo addgroup homeagent
 chown homeagent /opt/home-agent
 ```
