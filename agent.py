@@ -440,11 +440,19 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         """Run tasks to publish events"""
 
         LOGGER.debug("%s Running events", LOG_PREFIX)
-        self._stats[LAST]["events"] = int(time.time())
+        now = int(time.time())
+        self._stats[LAST]["events"] = now
+
+        last_all = self._stats[LAST].get("update_all", 0)
+        last_delta = int(now - last_all)
+        update_all = bool(last_delta > 3600)
+        if update_all:
+            self._stats[LAST]["update_all"] = now
+
         self._save_state()
         if self._ha_connected:
             self._publish_online()
-            self.update_sensors(True)
+            self.update_sensors(update_all)
             self.update_device_tracker()
 
     ##########################################
@@ -627,10 +635,10 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         _services = self._modules[_module].services
         for _service, items in tuple(_services.items()):
             LOGGER.info(
-                "%s Setup service %s for module %s (%s)",
+                "%s [%s] Setup service %s (%s)",
                 LOG_PREFIX,
-                _service,
                 _module,
+                _service,
                 items,
             )
             self._services[_service] = getattr(self._modules[_module], _service)
@@ -664,9 +672,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             _sensors_set = {}
 
         for _sensor in mod_class.sensors:
-            LOGGER.info(
-                "%s Setup sensor %s for module %s", LOG_PREFIX, _sensor, _module
-            )
+            LOGGER.info("%s [%s] Setup sensor %s", LOG_PREFIX, _module, _sensor)
             self.sensors[_sensor] = {}
             if hasattr(mod_class, "attribs"):
                 _attrib = mod_class.attribs.get(_sensor)
@@ -710,11 +716,14 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                 self._connector.subscribe_to(_topic)
 
     ##########################################
-    def update_sensors(self, _send_nochange=False, _sensors=None):
+    def update_sensors(self, force_update=False, _sensors=None):
         """Send sensor data to MQTT broker"""
 
         LOGGER.debug(
-            "%s Running update state for %s sensors", LOG_PREFIX, len(self.sensors)
+            "%s Running update state for %s sensors and force=%s",
+            LOG_PREFIX,
+            len(self.sensors),
+            force_update,
         )
         if _sensors is None:
             _sensors = tuple(self.sensors.keys())
@@ -742,18 +751,16 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                 self.message_send(_data)
                 continue
 
-            # LOGGER.debug(
-            #    "%s sensor[%s] state: %s %s", LOG_PREFIX, sensor, _state, type(_state)
-            # )
+            if force_update or (_last is not None and _state != _last):
 
-            if _send_nochange or (_last is not None and _state != _last):
-                LOGGER.debug(
-                    "%s %s changed from [%s] to [%s]. Publishing new state",
-                    LOG_PREFIX,
-                    sensor,
-                    _last,
-                    _state,
-                )
+                if not force_update:
+                    LOGGER.debug(
+                        "%s %s changed from [%s] to [%s]. Publishing new state",
+                        LOG_PREFIX,
+                        sensor,
+                        _last,
+                        _state,
+                    )
 
                 if _state is not None:
                     _data = {TOPIC: _topic, PAYLOAD: {STATE: _state}}

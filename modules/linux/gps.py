@@ -23,9 +23,7 @@ class AgentModule:
     platform = ["linux"]
     sensors = ["location"]
     attribs = {}
-    sensor_attribs = {}
-    sensor_class = {}
-    sensor_icons = {}
+    sensor_icons = {"location": "satellite-variant"}
     _available = False
 
     ##########################################
@@ -110,9 +108,6 @@ class Location:
     ##########################################
     def stop(self):
         """Stop data loop"""
-        self._nmea = None
-        self._serial.close()
-        self._serial = None
         self._running = False
 
     ##########################################
@@ -179,6 +174,9 @@ class Location:
             if error:
                 LOGGER.error("%s %s", LOG_PREFIX, error)
 
+        self._nmea = None
+        self._serial.close()
+        self._serial = None
         LOGGER.info("%s Exit NMEA reader", LOG_PREFIX)
 
     ##########################################
@@ -233,10 +231,5 @@ class Location:
         """Return dict with location data"""
         with self._state as _state:
             data = _state.copy()
-
-        # if "gps_accuracy" not in data:
-        #    data["gps_accuracy"] = 3
-        #    data["vertical_accuracy"] = 3
-        #    data["speed"] = 0
 
         return data
