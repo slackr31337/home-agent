@@ -114,13 +114,9 @@ deactivate
 
 
 ## Running home-agent
-```
-cd /opt/home-agent
-user@laptop:/opt/home-agent$ source env/bin/activate
-(env) user@laptop:/opt/home-agent$ 
 
-(env) user@laptop:/opt/home-agent$ python3 run.py -h
-[            run.py:               main()]  INFO Starting Home Agent endpoint
+```
+user@laptop:/opt/home-agent$ python3 run.py -h
 usage: run.py [-h] [-c CONFIG] [-s] [-d]
 
 Home Agent endpoint
@@ -131,6 +127,12 @@ optional arguments:
                         Set config.yaml file
   -s, --service         Run as service
   -d, --debug           Turn on DEBUG logging
+```
+
+```
+cd /opt/home-agent
+user@laptop:/opt/home-agent$ source env/bin/activate
+(env) user@laptop:/opt/home-agent$ 
 
 (env) user@laptop:/opt/home-agent$ python3 run.py -s -c secrets.yaml 
 [            run.py:               main()]  INFO Starting Home Agent endpoint
