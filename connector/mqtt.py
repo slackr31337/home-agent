@@ -5,6 +5,7 @@ import json
 import time
 import platform
 import socket
+import threading
 import paho.mqtt.client as mqtt
 
 
@@ -40,10 +41,10 @@ class Connector(mqtt.Client):
     ##########################################
     def __init__(
         self,
-        config,
-        event,
-        running,
-        clientid,
+        config: dict,
+        event: threading.Event,
+        running: threading.Event,
+        clientid: str,
         **kwargs,
     ):
 
@@ -277,12 +278,9 @@ class Connector(mqtt.Client):
         LOGGER.debug("%s publish: %s", LOG_PREFIX, _topic)
 
         try:
-            result = self._mqttc.publish(
-                _topic, payload=payload, qos=qos, retain=retain
-            )
-            result.wait_for_publish(timeout=5)
-            if result.is_published():
-                self._connected_event.set()
+            self._mqttc.publish(_topic, payload=payload, qos=qos, retain=retain)
+            # result.wait_for_publish(timeout=3)
+            self._connected_event.set()
 
         except mqtt.WebsocketConnectionError as err:
             LOGGER.error("%s Publish failed. %s", LOG_PREFIX, err)

@@ -148,6 +148,8 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             with self._states as _states:
                 _states["has_gps"] = True
             self._sched.queue(self.gps, self._config.intervals.gps, True)
+        else:
+            self.update_device_tracker()
 
         LOGGER.info("%s Starting events task", LOG_PREFIX)
         self._sched.queue(self.events, self._config.intervals.events, True)
@@ -491,6 +493,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             with self._sensors as _sensors:
                 sensors = _sensors.copy()
             self.publish_sensors(sensors, update_all)
+            self.update_device_tracker()
 
     ##########################################
     def _save_state(self):
@@ -764,7 +767,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                 )
                 continue
 
-            self._connected_event.wait(5)
+            self._connected_event.wait(4)
             _data[PAYLOAD].update(
                 {NAME: _name, AVAILABILITY_TOPIC: self._config.device.availability}
             )
