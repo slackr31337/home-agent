@@ -291,6 +291,6 @@ class Connector(mqtt.Client):
         return True
 
     ##########################################
-    def ping(self, topic):
+    def ping(self, topic: str, src: str):
         """Send ping message"""
-        self.publish(topic, "ping")
+        self.publish(topic, {"ping": "request", "src": src})

@@ -212,7 +212,10 @@ class Location:
     ##########################################
     def _process_vtg(self, msg):
         """Process NMEA GPVTG message"""
-        speed = float(msg.sogk)
+        speed = str(msg.sogk)
+        if len(speed) == 0:
+            return
+        speed = float(speed)
         if not self._metric:
             speed = f"{float(speed / 1.609):.1f}"
 

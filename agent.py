@@ -13,7 +13,9 @@ import ipaddress
 
 
 from utilities.log import LOGGER
-from utilities.util import calc_elasped
+from utilities.states import ThreadSafeDict
+from utilities.util import calc_elasped, gps_moving, gps_update
+from device.setup import setup_device, setup_sensor
 from scheduler import Scheduler
 from config import ONLINE_ATTRIB, Config
 from const import (
@@ -21,7 +23,6 @@ from const import (
     STATE,
     TOPIC,
     PAYLOAD,
-    SENSOR,
     START_TIME,
     NAME,
     LAST,
@@ -46,15 +47,11 @@ from const import (
     BATTERY_LEVEL,
     BINARY_SENSOR,
     SOURCE_TYPE,
-    IDENTIFIERS,
-    CONNECTIONS,
-    MANUFACTURER,
-    MODEL,
-    UNIQUE_ID,
     STATUS,
     GET,
     CONNECTED,
     RESET,
+    GPS,
 )
 
 LOG_PREFIX = "[HomeAgent]"
@@ -75,28 +72,90 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         self._config = config
         self._running = running
         self._sched = sched
+        self._sensors = ThreadSafeDict()
+        self._states = ThreadSafeDict()
+        self._attribs = ThreadSafeDict()
+        self._stats = {LAST: {}}
         self._connector = None
         self._ha_connected = False
-        self.states = {}
-        self._stats = {LAST: {}}
         self._modules = {}
         self._callback = {}
         self._services = {}
         self._last_sensors = {}
         self.platform_class = None
         self.device = {}
-        self.attribs = {}
         self.icons = {}
 
-        if sensors:
-            self.sensors = sensors
-        else:
-            self.sensors = self._config.sensors.get(PUBLISH)
+        if sensors is None:
+            sensors = self._config.sensors.get(PUBLISH)
+
+        with self._sensors as _sensors:
+            _sensors.update(sensors)
 
         self._os_module()
         self._connector_module()
         self._load_hardware()
         self._load_modules()
+        self.get_sensors()
+
+    ##########################################
+    def stop(self):
+        """Send offline message and stop connector"""
+
+        LOGGER.info("%s Stopping", LOG_PREFIX)
+        self._publish_online(OFFLINE)
+        for module, mod_class in self._modules.items():
+            LOGGER.info("%s Stopping %s", LOG_PREFIX, module)
+            if hasattr(mod_class, "stop"):
+                mod_class.stop()
+
+        LOGGER.info("%s Disconnect from HA", LOG_PREFIX)
+        self._connected_event.clear()
+        self._connector.stop()
+        self._connector = None
+        self._ha_connected = False
+        LOGGER.info("%s Exit", LOG_PREFIX)
+        sys.exit()
+
+    ##########################################
+    def start(self):
+        """Init system info and sensors"""
+
+        LOGGER.debug("%s Running startup tasks", LOG_PREFIX)
+        start = int(time.time())
+        self._stats[START_TIME] = start
+        self._load_state()
+        self.get_sensors()
+        self.get_identifiers()
+        self.get_connections()
+        self._publish_device()
+
+        LOGGER.info("%s Starting connection ping task", LOG_PREFIX)
+        self._sched.queue(self.conn_ping, self._config.intervals.ping, True)
+
+        self._add_sensor_prefixes()
+        self._setup_module_sensors()
+        self._setup_module_services()
+        self._setup_sensors()
+        self._setup_device_tracker()
+
+        LOGGER.info("%s Starting collector and publisher tasks", LOG_PREFIX)
+        self._sched.queue(self.collector, self._config.intervals.collector, True)
+        self._sched.queue(self.publish_sensors, self._config.intervals.publish, True)
+
+        if GPS in self._modules:
+            LOGGER.info("%s Starting GPS task", LOG_PREFIX)
+            with self._states as _states:
+                _states["has_gps"] = True
+            self._sched.queue(self.gps, self._config.intervals.gps, True)
+
+        LOGGER.info("%s Starting events task", LOG_PREFIX)
+        self._sched.queue(self.events, self._config.intervals.events, True)
+
+        self.collector()
+
+        elasped = calc_elasped(start)
+        LOGGER.info("%s Startup finished in %s", LOG_PREFIX, elasped)
 
     ##########################################
     def _os_module(self):
@@ -204,7 +263,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                     continue
 
                 self._modules[_class.slug] = _class
-                self._setup_module_sensors(_class.slug)
+                # self._setup_module_sensors(_class.slug)
 
             except Exception as err:  # pylint: disable=broad-except
                 LOGGER.error(
@@ -256,46 +315,6 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
 
             LOGGER.info("%s [%s] Loaded %s", LOG_PREFIX, _class.slug, _class.name)
             self._modules[_class.slug] = _class
-            self._setup_module_sensors(_class.slug)
-            self._setup_module_services(_class.slug)
-
-    ##########################################
-    def stop(self):
-        """Send offline message and stop connector"""
-
-        LOGGER.info("%s Stopping", LOG_PREFIX)
-        self._publish_online(OFFLINE)
-        for module in self._modules:  # pylint: disable=consider-using-dict-items
-            if hasattr(self._modules[module], "stop"):
-                self._modules[module].stop()
-
-        LOGGER.info("%s Disconnect from HA", LOG_PREFIX)
-        self._connected_event.clear()
-        self._connector.stop()
-        self._connector = None
-        self._ha_connected = False
-        LOGGER.info("%s Exit", LOG_PREFIX)
-        sys.exit()
-
-    ##########################################
-    def start(self):
-        """Init system info and sensors"""
-
-        LOGGER.debug("%s Running startup tasks", LOG_PREFIX)
-        start = int(time.time())
-        self._stats[START_TIME] = start
-        self._load_state()
-        self.get_sysinfo()
-        self.get_identifiers()
-        self.get_connections()
-        self._publish_device()
-        self.modules()
-        self._add_sensor_prefixes()
-        self._setup_sensors()
-        self._setup_device_tracker()
-
-        elasped = calc_elasped(start)
-        LOGGER.info("%s Startup finished in %s", LOG_PREFIX, elasped)
 
     ##########################################
     def _conn_reset(self):
@@ -331,7 +350,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         self._stats[LAST][PING] = int(time.time())
         if self._ha_connected:
             self._stats[LAST][CONNECTED] = int(time.time())
-            self._connector.ping("homeassistant/status")
+            self._connector.ping("homeassistant/status", self._config.hostname)
 
         else:
             reset_elasped = calc_elasped(last_reset)
@@ -350,14 +369,17 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         prefix_class = tuple(self._config.sensors.prefix_class.keys())
         prefix_icon = tuple(self._config.sensors.prefix_icons.keys())
 
-        sensors = tuple(self.states.keys())
+        with self._states as _states:
+            sensors = tuple(_states.keys())
+
         for sensor in sensors:
             item = [prefix for prefix in prefix_sensors if prefix in sensor]
             if not item:
                 continue
 
-            # Add sensor to metrics collection
-            self.sensors[sensor] = {}
+            # Add sensor to collection
+            with self._sensors as _sensors:
+                _sensors[sensor] = {}
 
             # Add sensor device class data
             item = [prefix for prefix in prefix_class if prefix in sensor]
@@ -387,9 +409,12 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
 
         items = [SERIAL, MAC_ADDRESS, IP_ADDRESS]
         _id = None
+        with self._states as _states:
+            states = _states.copy()
+
         while _id is None and len(items) > 0:
             _key = items.pop(0)
-            _id = self.states.get(_key)
+            _id = states.get(_key)
             if "Serial" in _id or "O.E.M." in _id:
                 _id = None
 
@@ -400,9 +425,11 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     ##########################################
     def get_connections(self):
         """Get connection identifiers for this device"""
+        with self._states as _states:
+            states = _states.copy()
 
-        _conn = [[IP_ADDRESS, self.states.get(IP_ADDRESS)]]
-        for _value in self.states.get("mac_addresses"):
+        _conn = [[IP_ADDRESS, states.get(IP_ADDRESS)]]
+        for _value in states.get("mac_addresses"):
             if _value:
                 _conn.append(["mac", _value])
 
@@ -410,30 +437,39 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         LOGGER.info("%s Device connections: %s", LOG_PREFIX, _conn)
 
     ##########################################
-    def metrics(self):
-        """Run tasks to publish metrics"""
+    def get_sensors(self):
+        """Collect system info"""
 
-        LOGGER.debug("%s Running device metrics collection", LOG_PREFIX)
-        self._stats[LAST]["metrics"] = int(time.time())
-        self.get_sysinfo()
-        if self._ha_connected:
-            self.update_sensors()
+        self.platform_class.update()
+        states, attribs = self.platform_class.state()
+        with self._states as _states:
+            _states.update(states)
+
+        with self._attribs as _attribs:
+            _attribs.update(attribs)
 
     ##########################################
-    def modules(self):
-        """Run tasks to publish metrics"""
-        if not self._ha_connected:
-            return
+    def collector(self, only: str = None):
+        """Run collector to gather sensor data"""
+
+        LOGGER.debug("%s Running sensor data collection", LOG_PREFIX)
+        self._stats[LAST]["collector"] = int(time.time())
+        self.get_sensors()
 
         LOGGER.debug("%s Running modules", LOG_PREFIX)
-        for slug in self._modules:  # pylint: disable=consider-using-dict-items
-            _sensors = self._modules[slug].sensors
-            LOGGER.debug("%s module %s sensors %s", LOG_PREFIX, slug, _sensors)
-            for _sensor in _sensors:
-                _value, _attrib = self._modules[slug].get(_sensor)
-                self.states[_sensor] = _value
+        for slug, mod in self._modules.items():
+            if isinstance(only, str) and slug != only:
+                continue
+
+            LOGGER.debug("%s module %s sensors", LOG_PREFIX, slug)
+            for _sensor in mod.sensors:
+                _value, _attrib = mod.get(_sensor)
+                with self._states as _states:
+                    _states[_sensor] = _value
+
                 if _attrib:
-                    self.attribs[_sensor] = _attrib
+                    with self._attribs as _attribs:
+                        _attribs[_sensor] = _attrib
 
     ##########################################
     def events(self):
@@ -452,27 +488,25 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         self._save_state()
         if self._ha_connected:
             self._publish_online()
-            self.update_sensors(update_all)
-            self.update_device_tracker()
-
-    ##########################################
-    def get_sysinfo(self):
-        """Collect system info"""
-
-        self.platform_class.update()
-        states, attribs = self.platform_class.state()
-        self.states.update(states)
-        self.attribs.update(attribs)
+            with self._sensors as _sensors:
+                sensors = _sensors.copy()
+            self.publish_sensors(sensors, update_all)
 
     ##########################################
     def _save_state(self):
         """Write state dict to file"""
         _file = f"{self._config.dir}/state.json"
         LOGGER.debug("%s Saving states to %s", LOG_PREFIX, _file)
+        with self._states as _states:
+            states = _states.copy()
+
+        with self._attribs as _attribs:
+            attribs = _attribs.copy()
+
         with open(_file, "w", encoding="utf-8") as _states:
             _state = {
-                STATE: self.states.copy(),
-                ATTRIBS: self.attribs.copy(),
+                STATE: states,
+                ATTRIBS: attribs,
                 DEVICE: self.device.copy(),
             }
             if "screen_capture" in _state[STATE]:
@@ -492,8 +526,11 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
 
         try:
             _state = json.loads(_data)
-            self.states = _state.get(STATE)
-            self.attribs = _state.get(ATTRIBS)
+            with self._states as _states:
+                _states = _state.get(STATE)
+
+            with self._attribs as _attribs:
+                _attribs = _state.get(ATTRIBS)
 
         except json.JSONDecodeError as err:
             LOGGER.error("%s Failed to load states from json", LOG_PREFIX)
@@ -505,14 +542,15 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         if not self._ha_connected:
             return False
 
-        # LOGGER.debug("%s message: %s", LOG_PREFIX, _data.get(TOPIC))
-        _topic = _data.get(TOPIC)
-        _payload = _data.get(PAYLOAD)
-        if _topic is None or _payload is None:
+        topic = _data.get(TOPIC)
+        payload = _data.get(PAYLOAD)
+        if topic is None or payload is None:
             LOGGER.error("%s payload or topic missing", LOG_PREFIX)
+            LOGGER.error("%s topic: %s", LOG_PREFIX, topic)
+            LOGGER.error("%s payload: %s", LOG_PREFIX, payload)
             return False
 
-        return self._connector.publish(_topic, _payload)
+        return self._connector.publish(topic, payload)
 
     ##########################################
     def message_receive(self, _data):
@@ -569,8 +607,10 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             if sensor in self._callback:
                 _func = self._callback.get(sensor)
                 _state = _func(sensor, payload)
-                self.states[sensor] = _state
-                self.update_sensors(True, [sensor])
+                with self._states as _states:
+                    _states[sensor] = _state
+
+                self.publish_sensors([sensor], True)
 
         elif command == GET:
             _type = payload.lower()
@@ -605,7 +645,10 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         """Publish device config"""
 
         LOGGER.debug("%s publish_device %s", LOG_PREFIX, self._config.hostname)
-        self.device = setup_device(self._config, self.states)
+        with self._states as _states:
+            states = _states.copy()
+
+        self.device = setup_device(self._config, states)
 
         _data = setup_sensor(
             self._config,
@@ -627,31 +670,28 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         self._publish_online()
 
     ##########################################
-    def _setup_module_services(self, _module):
+    def _setup_module_services(self):
         """Configure services from loaded module"""
-        if not hasattr(self._modules[_module], "services"):
-            return
+        for _module, mod_class in self._modules.items():
+            if not hasattr(self._modules[_module], "services"):
+                continue
 
-        _services = self._modules[_module].services
-        for _service, items in tuple(_services.items()):
-            LOGGER.info(
-                "%s [%s] Setup service %s (%s)",
-                LOG_PREFIX,
-                _module,
-                _service,
-                items,
-            )
-            self._services[_service] = getattr(self._modules[_module], _service)
-            topic = f"{self._config.device.topic}/{_service}"
-            self._connector.subscribe_to(topic)
+            _services = mod_class.services
+            for _service, items in tuple(_services.items()):
+                LOGGER.info(
+                    "%s [%s] Setup service %s (%s)",
+                    LOG_PREFIX,
+                    _module,
+                    _service,
+                    items,
+                )
+                self._services[_service] = getattr(mod_class, _service)
+                topic = f"{self._config.device.topic}/{_service}"
+                self._connector.subscribe_to(topic)
 
     ##########################################
-    def _setup_module_sensors(self, _module: str):
+    def _setup_module_sensors(self):
         """Configure sensors from loaded module"""
-
-        mod_class = self._modules[_module]
-        if not hasattr(mod_class, "sensors"):
-            return
 
         sensor_attr = {
             "sensor_class": self._config.sensors.sensor_class,
@@ -660,96 +700,140 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             "sensor_icons": self._config.sensors.icons,
         }
 
-        for attr, conf in sensor_attr.items():
-            if hasattr(mod_class, attr):
-                items = getattr(mod_class, attr)
-                conf.update(items)
+        for _module, mod_class in self._modules.items():
+            # mod_class = self._modules[_module]
+            if not hasattr(mod_class, "sensors"):
+                continue
 
-        if hasattr(mod_class, "sensors_set"):
-            _sensors_set = mod_class.sensors_set
+            for attr, conf in sensor_attr.items():
+                if hasattr(mod_class, attr):
+                    items = getattr(mod_class, attr)
+                    conf.update(items)
 
-        else:
-            _sensors_set = {}
+            if hasattr(mod_class, "sensors_set"):
+                _sensors_set = mod_class.sensors_set
 
-        for _sensor in mod_class.sensors:
-            LOGGER.info("%s [%s] Setup sensor %s", LOG_PREFIX, _module, _sensor)
-            self.sensors[_sensor] = {}
-            if hasattr(mod_class, "attribs"):
-                _attrib = mod_class.attribs.get(_sensor)
-                self._config.sensors.attrib[_sensor] = _attrib
-                LOGGER.debug("%s %s: %s", LOG_PREFIX, _sensor, _attrib)
+            else:
+                _sensors_set = {}
 
-            if _sensor in _sensors_set and hasattr(mod_class, "set"):
-                LOGGER.info("%s Setup callback %s.set()", LOG_PREFIX, _sensor)
-                self._callback[_sensor] = mod_class.set
+            for sensor in mod_class.sensors:
+                LOGGER.info("%s [%s] Setup sensor %s", LOG_PREFIX, _module, sensor)
+
+                if hasattr(mod_class, "attribs"):
+                    attrib = mod_class.attribs.get(sensor)
+                    self._config.sensors.attrib[sensor] = attrib
+                    LOGGER.debug("%s %s: %s", LOG_PREFIX, sensor, attrib)
+
+                if sensor in _sensors_set and hasattr(mod_class, "set"):
+                    LOGGER.info("%s Setup callback %s.set()", LOG_PREFIX, sensor)
+                    self._callback[sensor] = mod_class.set
+
+                _name = sensor.title().replace("_", " ")
+                LOGGER.debug("%s Setup module sensor: %s", LOG_PREFIX, _name)
+                data = setup_sensor(self._config, _name)
+                with self._sensors as _sensors:
+                    _sensors[sensor] = data
+
+                state, attrib = mod_class.get(sensor)
+                with self._states as _states:
+                    _states[sensor] = state
 
     ##########################################
     def _setup_sensors(self):
         """Publish sensor config to MQTT broker"""
+        with self._states as _states:
+            states = _states.copy()
 
-        for sensor in tuple(self.sensors.keys()):
-            _state = self.states.get(sensor)
+        with self._sensors as _sensors:
+            sensors = _sensors.copy()
+
+        for sensor in tuple(sensors.keys()):
+            _state = states.get(sensor)
             if _state is None:
                 continue
 
             _name = sensor.title().replace("_", " ")
             _data = setup_sensor(self._config, _name)
+            _topic = _data.get(TOPIC).split("/config", 2)[0]
 
             self._connected_event.clear()
             if not self.message_send(_data):
+                LOGGER.error(
+                    "%s Error publishing sensor setup %s: %s", LOG_PREFIX, _name, _topic
+                )
                 continue
 
-            self._connected_event.wait(3)
-
+            self._connected_event.wait(5)
             _data[PAYLOAD].update(
                 {NAME: _name, AVAILABILITY_TOPIC: self._config.device.availability}
             )
-            self.message_send(_data)
 
-            _data[TOPIC] = _data[TOPIC].split("/config", 2)[0] + "/state"
+            if not self.message_send(_data):
+                LOGGER.error("%s Error publishing sensor setup %s", LOG_PREFIX, _name)
 
-            self.sensors[sensor] = _data
+            _data[TOPIC] = f"{_topic}/state"
+            with self._sensors as _sensors:
+                _sensors[sensor] = _data
 
             if sensor in self._callback:
-                _topic = _data[TOPIC].split("/state", 2)[0] + "/set"
+                _topic = f"{_topic}/set"
                 LOGGER.info("%s Sensor set subscription: %s", LOG_PREFIX, _topic)
                 self._connector.subscribe_to(_topic)
 
+        self.publish_sensors()
+
     ##########################################
-    def update_sensors(self, force_update=False, _sensors=None):
+    def publish_sensors(self, _sensors=None, force_update=False):
         """Send sensor data to MQTT broker"""
 
+        if not self._ha_connected:
+            LOGGER.error(
+                "%s Not connected to HA and not publishing sensor data", LOG_PREFIX
+            )
+            return
+
+        with self._states as _states:
+            states = _states.copy()
+
+        with self._sensors as _sensors:
+            sensors = _sensors.copy()
+
+        if _sensors is None:
+            _sensors = tuple(sensors.keys())
+
         LOGGER.debug(
-            "%s Running update state for %s sensors and force=%s",
+            "%s Running publish state for %s sensors and force=%s",
             LOG_PREFIX,
-            len(self.sensors),
+            len(sensors),
             force_update,
         )
-        if _sensors is None:
-            _sensors = tuple(self.sensors.keys())
 
-        for sensor in _sensors:
-            _topic = self.sensors[sensor].get(TOPIC)
-            _state = self.states.get(sensor)
-            _last = self._last_sensors.get(sensor)
-
-            if _state is None:
-                LOGGER.debug("%s %s state is None", LOG_PREFIX, sensor)
+        for slug in _sensors:
+            _topic = sensors[slug].get(TOPIC)
+            if _topic is None:
+                # LOGGER.debug("%s sensor[%s] topic is None", LOG_PREFIX, slug)
                 continue
 
-            if isinstance(_state, str) and len(_state) > 0:
-                _state = _state.strip()
+            _last = self._last_sensors.get(slug)
+            _state = states.get(slug)
+            _data = {TOPIC: _topic, PAYLOAD: _state}
 
-            elif isinstance(_state, list) and len(_state) == 1:
+            if _state is None:
+                LOGGER.debug("%s %s state is None", LOG_PREFIX, slug)
+                continue
+
+            if isinstance(_state, bytearray):
+                self.message_send(_data)
+                continue
+
+            if isinstance(_state, list) and len(_state) == 1:
                 _state = next(iter(_state), [])
 
             elif isinstance(_state, int) and int(_state) not in range(0, 10000):
                 continue
 
-            elif isinstance(_state, bytearray):
-                _data = {TOPIC: _topic, PAYLOAD: _state}
-                self.message_send(_data)
-                continue
+            elif isinstance(_state, str) and len(_state) > 0:
+                _state = _state.strip()
 
             if force_update or (_last is not None and _state != _last):
 
@@ -757,17 +841,21 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                     LOGGER.debug(
                         "%s %s changed from [%s] to [%s]. Publishing new state",
                         LOG_PREFIX,
-                        sensor,
+                        slug,
                         _last,
                         _state,
                     )
 
-                if _state is not None:
-                    _data = {TOPIC: _topic, PAYLOAD: {STATE: _state}}
-                    self.message_send(_data)
-                    self._last_sensors[sensor] = _state
+                _data = {TOPIC: _topic, PAYLOAD: {STATE: _state}}
+                if self.message_send(_data):
+                    self._last_sensors[slug] = _state
+                else:
+                    LOGGER.error("%s Failed to publish sensor %s", LOG_PREFIX, slug)
+                    LOGGER.debug("%s payload: %s", LOG_PREFIX, _data)
 
-                _attrib = self.attribs.get(sensor)
+                with self._attribs as _attribs:
+                    _attrib = _attribs.get(slug)
+
                 if _attrib and _topic:
                     _topic = _topic.split("/state", 2)[0] + "/attrib"
                     self.message_send({TOPIC: _topic, PAYLOAD: _attrib})
@@ -784,10 +872,10 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             LOG_PREFIX,
             f"{self._config.hostname}_location",
         )
-        if "location" in self.states:
-            source_type = "gps"
-        else:
-            source_type = ROUTER
+        source_type = ROUTER
+        with self._states as _states:
+            if _states.get("has_gps") is True:
+                source_type = GPS
 
         _data[PAYLOAD].update(
             {
@@ -804,24 +892,32 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     def update_device_tracker(self):
         """Publish device_tracker to MQTT broker"""
 
-        unique_id = f"{self.states.get(HOSTNAME).lower()}_location"
+        location = "not_home"
+        with self._states as _states:
+            states = _states.copy()
+
+        unique_id = f"{states.get(HOSTNAME).lower()}_location"
         LOGGER.debug("%s Running device_tracker.%s update", LOG_PREFIX, unique_id)
 
-        location = "not_home"
-        for _loc, _net in self._config.device_tracker.items():
+        if states.get("has_gps") is not True:
+            for _loc, _net in self._config.device_tracker.items():
 
-            network = ipaddress.ip_network(_net)
-            if network.version != 4:
-                ip_str = self.states.get("ip6_address")
-            else:
-                ip_str = self.states.get(IP_ADDRESS)
+                network = ipaddress.ip_network(_net)
+                if network.version != 4:
+                    ip_str = states.get("ip6_address")
+                else:
+                    ip_str = states.get(IP_ADDRESS)
 
-            addr = ipaddress.ip_address(ip_str)
-            if addr in network:
-                LOGGER.debug(
-                    "%s ip: %s net: %s location: %s", LOG_PREFIX, addr, network, _loc
-                )
-                location = self._config.locations.get(_loc)
+                addr = ipaddress.ip_address(ip_str)
+                if addr in network:
+                    LOGGER.debug(
+                        "%s ip: %s net: %s location: %s",
+                        LOG_PREFIX,
+                        addr,
+                        network,
+                        _loc,
+                    )
+                    location = self._config.locations.get(_loc)
 
         _topic = f"{self._config.prefix.discover}/device_tracker/{unique_id}/state"
 
@@ -832,93 +928,52 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             HOSTNAME: self._config.hostname,
         }
 
-        mac_address = self.states.get(MAC_ADDRESS)
+        mac_address = states.get(MAC_ADDRESS)
         if mac_address:
             payload[MAC_ADDRESS] = mac_address
 
-        ip_address = self.states.get(IP_ADDRESS)
+        ip_address = states.get(IP_ADDRESS)
         if ip_address:
             payload[IP_ADDRESS] = ip_address
 
-        battery_level = int(self.states.get(BATTERY_PERCENT, 0))
+        battery_level = int(states.get(BATTERY_PERCENT, 0))
         if battery_level > 0:
             payload[BATTERY_LEVEL] = str(battery_level)
 
-        if "location" in self.attribs:
-            payload[SOURCE_TYPE] = "gps"
-            payload.update(self.attribs.get("location"))
+        with self._attribs as _attribs:
+            location = _attribs.get("location")
+
+        if location:
+            payload[SOURCE_TYPE] = GPS
+            payload.update(location)
 
         if len(payload) > 0:
             _topic = f"{self._config.prefix.discover}/device_tracker/{unique_id}/attrib"
             self.message_send({TOPIC: _topic, PAYLOAD: payload})
 
+    #######################################################
+    def gps(self):
+        """Check GPS data and update as needed"""
 
-#######################################################
-def setup_device(_config, _states):
-    """Return dict with device data"""
+        state, data = self._modules[GPS].get("location")
+        LOGGER.debug("%s GPS sensor: %s", LOG_PREFIX, state)
+        if not isinstance(data, dict):
+            return
 
-    if _config.device.identifiers is None:
-        LOGGER.error("%s setup_device() Missing device identifier")
-        raise Exception("Missing device identifier")
+        if not isinstance(state, str) or "3D" not in state:
+            LOGGER.warning("%s GPS location fix: %s", LOG_PREFIX, state)
+            return
 
-    return {
-        DEVICE: {
-            NAME: _config.host.friendly_name,
-            IDENTIFIERS: _config.device.identifiers,
-            CONNECTIONS: _config.device.connections,
-            MANUFACTURER: _states.get(MANUFACTURER),
-            MODEL: _states.get(MODEL),
-            "sw_version": _states.get("firmware"),
-        },
-    }
+        last = self._stats[LAST].get(GPS)
+        force = gps_update(last)
+        moving = gps_moving(data)
+        if force or moving:
+            self.update_device_tracker()
+            self._stats[LAST][GPS] = int(time.time())
 
-
-########################################################
-def setup_sensor(_config, sensor="Status", sensor_type=None, attribs=None):
-    """Return dict with sensor config"""
-    device_name = _config.hostname.lower().replace(" ", "_")
-    sensor_name = sensor.lower().replace(" ", "_")
-    unique_id = f"{device_name}_{sensor_name}"
-
-    if not sensor_type:
-        sensor_type = _config.sensors.type.get(sensor_name, SENSOR)
-
-    LOGGER.debug(
-        "%s setup_sensor[%s] (%s) type %s",
-        LOG_PREFIX,
-        sensor_name,
-        sensor,
-        sensor_type,
-    )
-
-    topic = f"{_config.prefix.discover}/{sensor_type}/{unique_id}"
-    config_topic = f"{topic}/config"
-
-    payload = {
-        "~": topic,
-        NAME: unique_id,
-        UNIQUE_ID: unique_id,
-        STATE_TOPIC: f"{topic}/state",
-        DEVICE: {IDENTIFIERS: _config.device.identifiers},
-    }
-
-    if not attribs:
-        attribs = _config.sensors.attrib.get(sensor_type)
-
-    if attribs is not None:
-        if isinstance(attribs, dict):
-            for item, value in attribs.items():
-                payload[item] = value
-
-    _class = _config.sensors.sensor_class.get(sensor_name)
-    if isinstance(_class, dict):
-        payload.update(_class)
-
-    _icon = _config.sensors.icons.get(sensor_name)
-    if _icon:
-        payload.update({"icon": f"mdi:{_icon}"})
-
-    return {
-        TOPIC: config_topic,
-        PAYLOAD: payload,
-    }
+        last_moving = self._stats[LAST].get("moving")
+        if moving != last_moving:
+            LOGGER.info(
+                "%s GPS moving: %s speed: %s", LOG_PREFIX, moving, data.get("speed")
+            )
+            self._stats[LAST]["moving"] = moving

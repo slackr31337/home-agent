@@ -37,7 +37,7 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
         self.log_output = None
         self._output_handler = None
         if maint:
-            self.queue(self.sched_maint, 600, True)
+            self.queue(self._sched_maint, 600, True)
 
     ##########################################
     def update_state(self, key, value=None):
@@ -83,7 +83,7 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
             self.update_state("start", time.time())
 
     ##########################################
-    def sched_maint(self):
+    def _sched_maint(self):
         """Remove old states from dict"""
         with self._state as _state:
             for _task, _data in tuple(_state[SCHEDULER][TASKS].items()):

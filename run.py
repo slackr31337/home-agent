@@ -28,13 +28,7 @@ def run_service(config: Config, _sensors=None):
     agent = HomeAgent(config, running, sched, _sensors)
 
     sched.run(agent.start)
-    sched.queue(agent.metrics, 10)
-    sched.queue(agent.events, 10)
-
-    sched.queue(agent.metrics, config.intervals.sensors, True)
-    sched.queue(agent.events, config.intervals.events, True)
-    sched.queue(agent.modules, config.intervals.modules, True)
-    sched.queue(agent.conn_ping, config.intervals.ping, True)
+    sched.queue(agent.collector, 10)
 
     sched.start()
 

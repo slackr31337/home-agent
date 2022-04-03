@@ -15,11 +15,12 @@ api:
   host: homeassistant.local or host.ui.nabu.casa
   token: "LongLivedAccessToken"
 
-# Scheduler intervals for updating states
+# Scheduler intervals for tasks
 intervals:  
-  sensors: 15   # Send sensor states
-  modules: 30   # Module sensor state updates
-  events: 60    # Check connected and update device
+  collector: 15 # Collect sensor states
+  publish: 30   # Publish sensor states
+  events: 60    # Check events
+  gps: 15       # Publish GPS location tracker
   ping: 300     # Connector ping check
 
 # Device name in Home Assistant
