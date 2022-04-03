@@ -584,7 +584,8 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                 if not self._ha_connected:
                     LOGGER.info("%s Home Assistant connection is online", LOG_PREFIX)
                     self._ha_connected = True
-                    self.start()
+                    self._setup_sensors()
+                    self._setup_device_tracker()
 
             elif event_type in [WILL, OFFLINE]:
                 self._stats[LAST][event_type] = now
