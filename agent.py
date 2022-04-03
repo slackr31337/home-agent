@@ -556,14 +556,14 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         return self._connector.publish(topic, payload)
 
     ##########################################
-    def message_receive(self, _data):
+    def message_receive(self, _data: dict):
         """Receive message from Home Assistant using connector"""
 
         LOGGER.debug("%s Message received. %s", LOG_PREFIX, _data)
         self.process_cmd(_data)
 
     ##########################################
-    def process_cmd(self, _data):
+    def process_cmd(self, _data: dict):
         """Process message from Home Assistant"""
 
         topic = _data.get(TOPIC, "").split("/")
@@ -633,13 +633,13 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                 LOGGER.error("%s Module command error. %s", LOG_PREFIX, err)
 
     ##########################################
-    def _publish_online(self, _state="online"):
+    def _publish_online(self, state: str = "online"):
         """Publish online status"""
 
         if not self.message_send(
             {
                 TOPIC: f"{self._config.device.topic}/status",
-                PAYLOAD: _state,
+                PAYLOAD: state,
             }
         ):
             self._ha_connected = False
@@ -787,7 +787,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         self.publish_sensors()
 
     ##########################################
-    def publish_sensors(self, _sensors=None, force_update=False):
+    def publish_sensors(self, _sensors: dict = None, force_update: bool = False):
         """Send sensor data to MQTT broker"""
 
         if not self._ha_connected:
