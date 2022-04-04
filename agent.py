@@ -941,15 +941,14 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         payload = {
             SOURCE_TYPE: ROUTER,
         }
-
         for key in [HOSTNAME, MAC_ADDRESS, IP_ADDRESS]:
             value = states.get(key)
             if value:
                 payload[key] = value
 
-        battery_level = int(states.get(BATTERY_PERCENT, 0))
-        if battery_level > 0:
-            payload[BATTERY_LEVEL] = str(battery_level)
+        value = int(states.get(BATTERY_PERCENT, 0))
+        if value > 0:
+            payload[BATTERY_LEVEL] = str(value)
 
         with self._attribs as _attribs:
             value = _attribs.get("location")
