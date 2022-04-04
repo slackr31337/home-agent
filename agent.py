@@ -130,7 +130,11 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         self.get_connections()
         self._publish_device()
 
-        LOGGER.info("%s Starting connection ping task", LOG_PREFIX)
+        LOGGER.info(
+            "%s Starting connection ping task. interval: %s",
+            LOG_PREFIX,
+            self._config.intervals.ping,
+        )
         self._sched.queue(self.conn_ping, self._config.intervals.ping, True)
 
         self._add_sensor_prefixes()
@@ -139,19 +143,37 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         self._setup_sensors()
         self._setup_device_tracker()
 
-        LOGGER.info("%s Starting collector and publisher tasks", LOG_PREFIX)
+        LOGGER.info(
+            "%s Starting collector task. interval: %s",
+            LOG_PREFIX,
+            self._config.intervals.collector,
+        )
         self._sched.queue(self.collector, self._config.intervals.collector, True)
+
+        LOGGER.info(
+            "%s Starting publisher task. interval: %s",
+            LOG_PREFIX,
+            self._config.intervals.publish,
+        )
         self._sched.queue(self.publish_sensors, self._config.intervals.publish, True)
 
         if GPS in self._modules:
-            LOGGER.info("%s Starting GPS task", LOG_PREFIX)
+            LOGGER.info(
+                "%s Starting GPS task. interval: %s",
+                LOG_PREFIX,
+                self._config.intervals.gps,
+            )
             with self._states as _states:
                 _states["has_gps"] = True
             self._sched.queue(self.gps, self._config.intervals.gps, True)
         else:
             self.update_device_tracker()
 
-        LOGGER.info("%s Starting events task", LOG_PREFIX)
+        LOGGER.info(
+            "%s Starting events task. interval: %s",
+            LOG_PREFIX,
+            self._config.intervals.events,
+        )
         self._sched.queue(self.events, self._config.intervals.events, True)
 
         self.collector()
@@ -903,6 +925,8 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     def update_device_tracker(self):
         """Publish device_tracker to MQTT broker"""
 
+        LOGGER.debug("%s Running device_tracker update", LOG_PREFIX)
+
         with self._states as _states:
             states = _states.copy()
 
@@ -910,12 +934,8 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             sensor = _sensors.get("device_tracker")
 
         _topic = sensor.get(TOPIC)
-        # unique_id = f"{self._config.hostname}_location"
-        # _topic = f"{self._config.prefix.discover}/device_tracker/{unique_id}"
-
-        LOGGER.debug("%s Running device_tracker update", LOG_PREFIX)
-
         location = "not_home"
+
         if states.get("has_gps") is not True:
             for _loc, _net in self._config.device_tracker.items():
 

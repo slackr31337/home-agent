@@ -39,5 +39,9 @@ locations:
 
 # Module parameters
 modules:
+  disable:
+    -audio
+    -gps
   gps:
     device: /dev/ttyUSB1
+
