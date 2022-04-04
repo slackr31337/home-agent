@@ -677,7 +677,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     def _setup_module_services(self):
         """Configure services from loaded module"""
         for _module, mod_class in self._modules.items():
-            if not hasattr(self._modules[_module], "services"):
+            if not hasattr(mod_class, "services"):
                 continue
 
             _services = mod_class.services
@@ -826,15 +826,15 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                 LOGGER.debug("%s %s state is None", LOG_PREFIX, slug)
                 continue
 
+            if isinstance(_state, int) and int(_state) not in range(0, 10000):
+                continue
+
             if isinstance(_state, bytearray):
                 self.message_send(_data)
                 continue
 
             if isinstance(_state, list) and len(_state) == 1:
                 _state = next(iter(_state), [])
-
-            elif isinstance(_state, int) and int(_state) not in range(0, 10000):
-                continue
 
             elif isinstance(_state, str) and len(_state) > 0:
                 _state = _state.strip()
@@ -851,11 +851,11 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                     )
 
                 _data = {TOPIC: _topic, PAYLOAD: {STATE: _state}}
-                if self.message_send(_data):
-                    self._last_sensors[slug] = _state
-                else:
-                    LOGGER.error("%s Failed to publish sensor %s", LOG_PREFIX, slug)
-                    LOGGER.debug("%s payload: %s", LOG_PREFIX, _data)
+                self.message_send(_data)
+                self._last_sensors[slug] = _state
+                # else:
+                #    LOGGER.error("%s Failed to publish sensor %s", LOG_PREFIX, slug)
+                #    LOGGER.debug("%s payload: %s", LOG_PREFIX, _data)
 
                 with self._attribs as _attribs:
                     _attrib = _attribs.get(slug)
@@ -896,23 +896,25 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     def update_device_tracker(self):
         """Publish device_tracker to MQTT broker"""
 
-        location = "not_home"
         with self._states as _states:
             states = _states.copy()
 
         unique_id = f"{states.get(HOSTNAME).lower()}_location"
+        _topic = f"{self._config.prefix.discover}/device_tracker/{unique_id}"
+
         LOGGER.debug("%s Running device_tracker.%s update", LOG_PREFIX, unique_id)
 
+        location = "not_home"
         if states.get("has_gps") is not True:
             for _loc, _net in self._config.device_tracker.items():
 
                 network = ipaddress.ip_network(_net)
                 if network.version != 4:
-                    ip_str = states.get("ip6_address")
+                    value = states.get("ip6_address")
                 else:
-                    ip_str = states.get(IP_ADDRESS)
+                    value = states.get(IP_ADDRESS)
 
-                addr = ipaddress.ip_address(ip_str)
+                addr = ipaddress.ip_address(value)
                 if addr in network:
                     LOGGER.debug(
                         "%s ip: %s net: %s location: %s",
@@ -923,37 +925,31 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                     )
                     location = self._config.locations.get(_loc)
 
-        _topic = f"{self._config.prefix.discover}/device_tracker/{unique_id}/state"
-
-        self.message_send({TOPIC: _topic, PAYLOAD: f"{location}"})
+        self.message_send({TOPIC: f"{_topic}/state", PAYLOAD: f"{location}"})
 
         payload = {
             SOURCE_TYPE: ROUTER,
             HOSTNAME: self._config.hostname,
         }
 
-        mac_address = states.get(MAC_ADDRESS)
-        if mac_address:
-            payload[MAC_ADDRESS] = mac_address
-
-        ip_address = states.get(IP_ADDRESS)
-        if ip_address:
-            payload[IP_ADDRESS] = ip_address
+        for key in [MAC_ADDRESS, IP_ADDRESS]:
+            value = states.get(key)
+            if value:
+                payload[key] = value
 
         battery_level = int(states.get(BATTERY_PERCENT, 0))
         if battery_level > 0:
             payload[BATTERY_LEVEL] = str(battery_level)
 
         with self._attribs as _attribs:
-            location = _attribs.get("location")
+            value = _attribs.get("location")
 
-        if location:
+        if isinstance(value, dict):
             payload[SOURCE_TYPE] = GPS
-            payload.update(location)
+            payload.update(value)
 
         if len(payload) > 0:
-            _topic = f"{self._config.prefix.discover}/device_tracker/{unique_id}/attrib"
-            self.message_send({TOPIC: _topic, PAYLOAD: payload})
+            self.message_send({TOPIC: f"{_topic}/attrib", PAYLOAD: payload})
 
     #######################################################
     def gps(self):
