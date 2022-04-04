@@ -899,7 +899,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         with self._states as _states:
             states = _states.copy()
 
-        unique_id = f"{states.get(HOSTNAME).lower()}_location"
+        unique_id = f"{self._config.hostname}_location"
         _topic = f"{self._config.prefix.discover}/device_tracker/{unique_id}"
 
         LOGGER.debug("%s Running device_tracker.%s update", LOG_PREFIX, unique_id)
@@ -929,10 +929,9 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
 
         payload = {
             SOURCE_TYPE: ROUTER,
-            HOSTNAME: self._config.hostname,
         }
 
-        for key in [MAC_ADDRESS, IP_ADDRESS]:
+        for key in [HOSTNAME, MAC_ADDRESS, IP_ADDRESS]:
             value = states.get(key)
             if value:
                 payload[key] = value
@@ -957,10 +956,11 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
 
         state, data = self._modules[GPS].get("location")
         LOGGER.debug("%s GPS sensor: %s", LOG_PREFIX, state)
-        if not isinstance(data, dict):
-            return
-
-        if not isinstance(state, str) or "3D" not in state:
+        if (
+            not isinstance(data, dict)
+            or not isinstance(state, str)
+            or "3D" not in state
+        ):
             LOGGER.warning("%s GPS location fix: %s", LOG_PREFIX, state)
             return
 
