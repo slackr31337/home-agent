@@ -1,3 +1,4 @@
+#pyalsaaudio; sys_platform == 'linux'
 py-dmidecode; sys_platform == 'linux'
 distro; sys_platform == 'linux'
 sounddevice; sys_platform == 'linux'
@@ -7,6 +8,9 @@ plyer; platform_system == 'Windows'
 mss; sys_platform == 'linux' or platform_system == 'Windows'
 wmi; platform_system == 'Windows'
 python-certifi-win32; platform_system == 'Windows'
+smbus2; sys_platform == 'linux'
+python-can; sys_platform == 'linux'
+gs_usb; sys_platform == 'linux'
 pynmeagps
 pyserial
 pyyaml
@@ -19,4 +23,4 @@ psutil
 bleson
 ipaddress
 pyusb
-smbus2
+

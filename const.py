@@ -26,6 +26,7 @@ DELAY = "delay"
 STARTED = "started"
 READY = "ready"
 RESET = "reset"
+GPS = "gps"
 
 EVENT = "event"
 ENDPOINT = "endpoint"

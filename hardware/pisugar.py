@@ -18,17 +18,30 @@ def get_parse_str(resp: bytes) -> str:
     return str(resp[pos + 1 :], encoding="utf-8").strip(" \n")
 
 
+##########################################
 def get_parse_float(resp: bytes) -> float:
     """Parse float from socket bytes"""
-    value = float(get_parse_str(resp))
-    return float(f"{value:.2f}")
+    try:
+        value = float(get_parse_str(resp))
+        value = float(f"{value:.2f}")
+    except ValueError:
+        value = 0
+
+    return value
 
 
+##########################################
 def get_parse_int(resp: bytes) -> int:
     """Parse int from socket bytes"""
-    return int(get_parse_str(resp))
+    try:
+        value = int(get_parse_str(resp))
+    except ValueError:
+        value = 0
+
+    return value
 
 
+##########################################
 def get_parse_bool(resp: bytes) -> bool:
     """Parse bool from socket bytes"""
     return get_parse_str(resp).lower().find("true") >= 0
@@ -75,6 +88,11 @@ class HWModule:
             "device_class": "current",
             "state_class": "measurement",
             "unit_of_measurement": "A",
+        },
+        "pisugar_safe_shutdown_level": {"unit_of_measurement": "%"},
+        "pisugar_safe_shutdown_delay": {
+            "state_class": "measurement",
+            "unit_of_measurement": "s",
         },
         "pisugar_rtc_alarm_time": {"device_class": "timestamp"},
         "pisugar_battery_power_plugged": {"device_class": "plug"},
