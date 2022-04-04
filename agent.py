@@ -13,7 +13,7 @@ import ipaddress
 
 
 from utilities.log import LOGGER
-from utilities.states import ThreadSafeDict
+from utilities.states import ThreadSafeDict, load_states, save_states
 from utilities.util import calc_elasped, gps_moving, gps_update
 from device.setup import setup_device, setup_sensor
 from scheduler import Scheduler
@@ -38,7 +38,6 @@ from const import (
     SERIAL,
     IP_ADDRESS,
     MAC_ADDRESS,
-    DEVICE,
     STATE_TOPIC,
     AVAILABILITY_TOPIC,
     ROUTER,
@@ -130,7 +129,11 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         self.get_connections()
         self._publish_device()
 
-        LOGGER.info("%s Starting connection ping task", LOG_PREFIX)
+        LOGGER.info(
+            "%s Starting connection ping task. interval: %s",
+            LOG_PREFIX,
+            self._config.intervals.ping,
+        )
         self._sched.queue(self.conn_ping, self._config.intervals.ping, True)
 
         self._add_sensor_prefixes()
@@ -139,19 +142,37 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         self._setup_sensors()
         self._setup_device_tracker()
 
-        LOGGER.info("%s Starting collector and publisher tasks", LOG_PREFIX)
+        LOGGER.info(
+            "%s Starting collector task. interval: %s",
+            LOG_PREFIX,
+            self._config.intervals.collector,
+        )
         self._sched.queue(self.collector, self._config.intervals.collector, True)
+
+        LOGGER.info(
+            "%s Starting publisher task. interval: %s",
+            LOG_PREFIX,
+            self._config.intervals.publish,
+        )
         self._sched.queue(self.publish_sensors, self._config.intervals.publish, True)
 
         if GPS in self._modules:
-            LOGGER.info("%s Starting GPS task", LOG_PREFIX)
+            LOGGER.info(
+                "%s Starting GPS task. interval: %s",
+                LOG_PREFIX,
+                self._config.intervals.gps,
+            )
             with self._states as _states:
                 _states["has_gps"] = True
             self._sched.queue(self.gps, self._config.intervals.gps, True)
         else:
             self.update_device_tracker()
 
-        LOGGER.info("%s Starting events task", LOG_PREFIX)
+        LOGGER.info(
+            "%s Starting events task. interval: %s",
+            LOG_PREFIX,
+            self._config.intervals.events,
+        )
         self._sched.queue(self.events, self._config.intervals.events, True)
 
         self.collector()
@@ -498,46 +519,33 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     ##########################################
     def _save_state(self):
         """Write state dict to file"""
-        _file = f"{self._config.dir}/state.json"
-        LOGGER.debug("%s Saving states to %s", LOG_PREFIX, _file)
+
         with self._states as _states:
             states = _states.copy()
 
         with self._attribs as _attribs:
             attribs = _attribs.copy()
 
-        with open(_file, "w", encoding="utf-8") as _states:
-            _state = {
-                STATE: states,
-                ATTRIBS: attribs,
-                DEVICE: self.device.copy(),
-            }
-            if "screen_capture" in _state[STATE]:
-                _state[STATE].pop("screen_capture")
-            _states.write(json.dumps(_state, default=str, indent=4))
+        _file = f"{self._config.dir}/state.json"
+        save_states(_file, states, attribs, self.device)
 
     ##########################################
     def _load_state(self):
         """Write state dict to file"""
+
         _file = f"{self._config.dir}/state.json"
         if not os.path.exists(_file):
             return
 
-        LOGGER.debug("%s Loading states from %s", LOG_PREFIX, _file)
-        with open(_file, "r", encoding="utf-8") as _states:
-            _data = _states.read()
+        data = load_states(_file)
+        if not isinstance(data, dict):
+            return
 
-        try:
-            _state = json.loads(_data)
-            with self._states as _states:
-                _states = _state.get(STATE)
+        with self._states as _states:
+            _states.update(data.get(STATE))
 
-            with self._attribs as _attribs:
-                _attribs = _state.get(ATTRIBS)
-
-        except json.JSONDecodeError as err:
-            LOGGER.error("%s Failed to load states from json", LOG_PREFIX)
-            LOGGER.error(err)
+        with self._attribs as _attribs:
+            _attribs.update(data.get(ATTRIBS))
 
     ##########################################
     def message_send(self, _data):
@@ -853,10 +861,6 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                 _data = {TOPIC: _topic, PAYLOAD: {STATE: _state}}
                 self.message_send(_data)
                 self._last_sensors[slug] = _state
-                # else:
-                #    LOGGER.error("%s Failed to publish sensor %s", LOG_PREFIX, slug)
-                #    LOGGER.debug("%s payload: %s", LOG_PREFIX, _data)
-
                 with self._attribs as _attribs:
                     _attrib = _attribs.get(slug)
 
@@ -903,6 +907,8 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     def update_device_tracker(self):
         """Publish device_tracker to MQTT broker"""
 
+        LOGGER.debug("%s Running device_tracker update", LOG_PREFIX)
+
         with self._states as _states:
             states = _states.copy()
 
@@ -910,12 +916,8 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             sensor = _sensors.get("device_tracker")
 
         _topic = sensor.get(TOPIC)
-        # unique_id = f"{self._config.hostname}_location"
-        # _topic = f"{self._config.prefix.discover}/device_tracker/{unique_id}"
-
-        LOGGER.debug("%s Running device_tracker update", LOG_PREFIX)
-
         location = "not_home"
+
         if states.get("has_gps") is not True:
             for _loc, _net in self._config.device_tracker.items():
 

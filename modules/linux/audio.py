@@ -4,7 +4,13 @@ pyalsaaudio
 apt-get install libasound2-dev
 """
 
-import alsaaudio
+try:
+    import alsaaudio
+
+except ImportError:
+    raise ImportError(
+        "Unable to import alsaaudio. Please install pyalsaudio and libasound2-dev"
+    )
 
 from utilities.log import LOGGER
 
