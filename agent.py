@@ -870,11 +870,12 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     def _setup_device_tracker(self):
         """Publish device_tracker to MQTT broker"""
 
+        unique_id = f"{self._config.hostname}_location"
         _data = setup_sensor(self._config, "location", "device_tracker")
         LOGGER.debug(
             "%s Setup device_tracker %s",
             LOG_PREFIX,
-            f"{self._config.hostname}_location",
+            unique_id,
         )
         source_type = ROUTER
         with self._states as _states:
@@ -883,14 +884,20 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
 
         _data[PAYLOAD].update(
             {
-                NAME: f"{self._config.hostname}_location",
+                NAME: unique_id,
                 SOURCE_TYPE: source_type,
                 AVAILABILITY_TOPIC: self._config.device.availability,
             }
         )
+
         if self.message_send(_data):
             _data[PAYLOAD].update({NAME: self._config.host.friendly_name})
             self.message_send(_data)
+
+        _topic = _data.get(TOPIC).split("/config", 2)[0]
+        _data[TOPIC] = f"{_topic}/state"
+        with self._sensors as _sensors:
+            _sensors["device_tracker"] = _data
 
     ##########################################
     def update_device_tracker(self):
@@ -899,10 +906,14 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         with self._states as _states:
             states = _states.copy()
 
-        unique_id = f"{self._config.hostname}_location"
-        _topic = f"{self._config.prefix.discover}/device_tracker/{unique_id}"
+        with self._sensors as _sensors:
+            sensor = _sensors.get("device_tracker")
 
-        LOGGER.debug("%s Running device_tracker.%s update", LOG_PREFIX, unique_id)
+        _topic = sensor.get(TOPIC)
+        # unique_id = f"{self._config.hostname}_location"
+        # _topic = f"{self._config.prefix.discover}/device_tracker/{unique_id}"
+
+        LOGGER.debug("%s Running device_tracker update", LOG_PREFIX)
 
         location = "not_home"
         if states.get("has_gps") is not True:
@@ -925,7 +936,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                     )
                     location = self._config.locations.get(_loc)
 
-        self.message_send({TOPIC: f"{_topic}/state", PAYLOAD: f"{location}"})
+        self.message_send({TOPIC: _topic, PAYLOAD: f"{location}"})
 
         payload = {
             SOURCE_TYPE: ROUTER,
@@ -948,7 +959,8 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             payload.update(value)
 
         if len(payload) > 0:
-            self.message_send({TOPIC: f"{_topic}/attrib", PAYLOAD: payload})
+            _topic = _topic.split("/state", 2)[0] + "/attrib"
+            self.message_send({TOPIC: _topic, PAYLOAD: payload})
 
     #######################################################
     def gps(self):
