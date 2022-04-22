@@ -126,6 +126,10 @@ class Connector(mqtt.Client):
             self._config.mqtt.port,
             self._tries,
         )
+        if self._tries > 2:
+            time.sleep(5)
+
+        self._connected_event.clear()
         try:
             self._mqttc.connect(
                 host=self._config.mqtt.host, port=self._config.mqtt.port

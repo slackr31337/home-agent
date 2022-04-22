@@ -927,16 +927,17 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                 else:
                     value = states.get(IP_ADDRESS)
 
-                addr = ipaddress.ip_address(value)
-                if addr in network:
-                    LOGGER.debug(
-                        "%s ip: %s net: %s location: %s",
-                        LOG_PREFIX,
-                        addr,
-                        network,
-                        _loc,
-                    )
-                    location = self._config.locations.get(_loc)
+                if value:
+                    addr = ipaddress.ip_address(value)
+                    if addr in network:
+                        LOGGER.debug(
+                            "%s ip: %s net: %s location: %s",
+                            LOG_PREFIX,
+                            addr,
+                            network,
+                            _loc,
+                        )
+                        location = self._config.locations.get(_loc)
 
         self.message_send({TOPIC: _topic, PAYLOAD: f"{location}"})
 

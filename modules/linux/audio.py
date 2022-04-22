@@ -8,7 +8,7 @@ try:
     import alsaaudio
 
 except ImportError:
-    raise ImportError(
+    raise ImportError(  # pylint: disable=raise-missing-from
         "Unable to import alsaaudio. Please install pyalsaudio and libasound2-dev"
     )
 
