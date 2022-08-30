@@ -268,7 +268,7 @@ class Connector(mqtt.Client):
         self._mqttc.subscribe(topic, 0)
 
     ##########################################
-    def _publish(
+    def pub(
         self,
         topic: str,
         payload: dict,
@@ -301,4 +301,4 @@ class Connector(mqtt.Client):
     ##########################################
     def ping(self, topic: str, src: str):
         """Send ping message"""
-        self._publish(topic, {"ping": "request", "src": src})
+        self.pub(topic, {"ping": "request", "src": src})

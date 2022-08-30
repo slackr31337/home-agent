@@ -53,7 +53,7 @@ from const import (
     GPS,
 )
 
-LOG_PREFIX = "[HomeAgent]"
+LOG_PREFIX = r"[HomeAgent]"
 ##########################################
 class HomeAgent:  # pylint:disable=too-many-instance-attributes
     """Class to collect and report endpoint data"""
@@ -230,7 +230,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             self._config, self._connected_event, self._running, client_id
         )
 
-        self._connector.message_callback(self.message_receive)
+        self._connector.callback(self.message_receive)
         self._connector.set_will(f"{self._config.device.topic}/status", OFFLINE)
         for topic in self._config.subscriptions:
             LOGGER.info("%s Connector subscribe: %s", LOG_PREFIX, topic)
@@ -568,7 +568,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             LOGGER.error("%s payload: %s", LOG_PREFIX, payload)
             return False
 
-        return self._connector.publish(topic, payload)
+        return self._connector.pub(topic, payload)
 
     ##########################################
     def message_receive(self, _data: dict):
@@ -720,7 +720,6 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         }
 
         for _module, mod_class in self._modules.items():
-            # mod_class = self._modules[_module]
             if not hasattr(mod_class, "sensors"):
                 continue
 
@@ -761,10 +760,10 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     def _setup_sensors(self):
         """Publish sensor config to MQTT broker"""
         with self._states as _states:
-            states = _states.copy()
+            states = dict(_states).copy()
 
         with self._sensors as _sensors:
-            sensors = _sensors.copy()
+            sensors = dict(_sensors).copy()
 
         for sensor in tuple(sensors.keys()):
             _state = states.get(sensor)
