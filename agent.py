@@ -313,7 +313,14 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                 "%s Import module: %s-%s", LOG_PREFIX, self._config.platform, _name
             )
 
-            _module = importlib.import_module(_name)
+            try:
+                _module = importlib.import_module(_name)
+
+            except Exception as err:  # pylint: disable=broad-except
+                LOGGER.error("%s Failed to load module %s. %s", LOG_PREFIX, _name, err)
+                LOGGER.debug(traceback.format_exc())
+                continue
+
             if not hasattr(_module, "AgentModule"):
                 LOGGER.error(
                     "%s Failed to load module %s. AgentModule class not found",

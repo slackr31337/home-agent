@@ -31,7 +31,7 @@ MQTT_CONN_CODES = {
     5: "Not authorized",
     6: "Unknown",
 }
-LOG_PREFIX = "[MQTT]"
+LOG_PREFIX = r"[MQTT]"
 ##########################################
 class Connector(mqtt.Client):
     """Home Assistant Connector class"""
@@ -70,7 +70,7 @@ class Connector(mqtt.Client):
         LOGGER.info("%s Starting connector to Home-Assistant", LOG_PREFIX)
         self._tries = 0
         self._connected_event.clear()
-        self.connect()
+        self._connect()
         self._mqttc.loop_start()
 
     ##########################################
@@ -91,7 +91,7 @@ class Connector(mqtt.Client):
             clean_session=True,
         )
 
-        if self._config.mqtt.port == 8883:
+        if self._config.mqtt.tls or self._config.mqtt.port == 8883:
             LOGGER.info(
                 "%s Using TLS connection with TLS_CA_CERT: %s", LOG_PREFIX, TLS_CA_CERT
             )
@@ -113,7 +113,7 @@ class Connector(mqtt.Client):
         self._mqttc.on_message = self.mqtt_on_message
 
     ##########################################
-    def connect(self):
+    def _connect(self):
         """Connect to MQTT broker"""
         if not self._running.is_set():
             return
@@ -238,7 +238,7 @@ class Connector(mqtt.Client):
             )
 
     ##########################################
-    def message_callback(self, callback=None):
+    def callback(self, callback=None):
         """Set call back function for MQTT message"""
         self._callback = callback
 
@@ -268,21 +268,27 @@ class Connector(mqtt.Client):
         self._mqttc.subscribe(topic, 0)
 
     ##########################################
-    def publish(self, _topic, payload, qos=1, retain=False):
+    def _publish(
+        self,
+        topic: str,
+        payload: dict,
+        qos: int = 1,
+        retain: bool = False,
+    ):
         """Publish payload to MQTT topic"""
         if not self._running.is_set():
             return False
 
         if not self._connected:
-            self.connect()
+            self._connect()
 
         if isinstance(payload, dict):
             payload = json.dumps(payload, default=str)
 
-        LOGGER.debug("%s publish: %s", LOG_PREFIX, _topic)
+        LOGGER.debug("%s publish: %s", LOG_PREFIX, topic)
 
         try:
-            self._mqttc.publish(_topic, payload=payload, qos=qos, retain=retain)
+            self._mqttc.publish(topic, payload=payload, qos=qos, retain=retain)
             # result.wait_for_publish(timeout=3)
             self._connected_event.set()
 
@@ -295,4 +301,4 @@ class Connector(mqtt.Client):
     ##########################################
     def ping(self, topic: str, src: str):
         """Send ping message"""
-        self.publish(topic, {"ping": "request", "src": src})
+        self._publish(topic, {"ping": "request", "src": src})

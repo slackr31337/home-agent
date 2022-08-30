@@ -31,3 +31,4 @@ secrets.*
 state.json
 *.code-workspace
 vscode
+config.yaml

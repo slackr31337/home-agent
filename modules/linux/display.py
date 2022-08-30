@@ -198,7 +198,11 @@ class AgentModule:
             )
 
         imagestring = None
-        with open(filename, "rb") as _image:
-            imagestring = _image.read()
+        try:
+            with open(filename, "rb") as _image:
+                imagestring = _image.read()
+
+        except PermissionError:
+            LOGGER.error("%s failed to save screen capture. Permission denied")
 
         return bytearray(imagestring), None
