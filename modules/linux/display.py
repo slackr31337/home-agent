@@ -6,7 +6,7 @@ import ctypes.util
 from mss import mss
 
 
-from utilities.log import LOGGER
+from service.log import LOGGER
 from config import HOSTNAME
 
 LOG_PREFIX = "[display]"

@@ -12,13 +12,14 @@ import json
 import ipaddress
 
 
-from utilities.log import LOGGER
-from utilities.states import ThreadSafeDict, load_states, save_states
-from utilities.util import calc_elasped, gps_moving, gps_update
+from service.log import LOGGER
+from service.scheduler import Scheduler
+from service.states import ThreadSafeDict, load_states, save_states
+from service.util import calc_elasped, gps_moving, gps_update
 from device.setup import setup_device, setup_sensor
-from scheduler import Scheduler
-from config import ONLINE_ATTRIB, Config
-from const import (
+
+from config import CONN_DIR, HW_DIR, MOD_DIR, ONLINE_ATTRIB, OS_DIR, Config
+from service.const import (
     ATTRIBS,
     STATE,
     TOPIC,
@@ -67,23 +68,23 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         sensors: dict = None,
     ):
         """Init class"""
-        self._connected_event = threading.Event()
-        self._config = config
-        self._running = running
-        self._sched = sched
+        self._connected_event:threading.Event = threading.Event()
+        self._config:dict = config
+        self._running:threading.Event = running
+        self._sched:Scheduler = sched
         self._sensors = ThreadSafeDict()
         self._states = ThreadSafeDict()
         self._attribs = ThreadSafeDict()
         self._stats = {LAST: {}}
         self._connector = None
-        self._ha_connected = False
-        self._modules = {}
-        self._callback = {}
-        self._services = {}
-        self._last_sensors = {}
+        self._ha_connected:bool = False
+        self._modules:dict = {}
+        self._callback:dict = {}
+        self._services:dict = {}
+        self._last_sensors:dict = {}
         self.platform_class = None
-        self.device = {}
-        self.icons = {}
+        self.device:dict = {}
+        self.icons:dict = {}
 
         if sensors is None:
             sensors = self._config.sensors.get(PUBLISH)
@@ -184,25 +185,22 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     def _os_module(self):
         """Load OS module"""
 
-        mod_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "os")
-        sys.path.append(mod_dir)
-
         LOGGER.info(
             "%s Loading OS module: %s",
             LOG_PREFIX,
             self._config.platform,
         )
-        if not os.path.exists(f"{mod_dir}/{self._config.platform}.py"):
+        sys.path.append(OS_DIR)
+        os_module = os.path.join(OS_DIR, f"{self._config.platform}.py")
+        if not os.path.exists(os_module):
             LOGGER.error(
                 "%s OS module [%s] not found in %s",
                 LOG_PREFIX,
                 self._config.platform,
-                mod_dir,
+                OS_DIR,
             )
             raise Exception("OS module not found")
-
-        os_module = os.path.join(mod_dir, f"{self._config.platform}.py")
-
+        
         _name = pathlib.Path(os_module).stem
         _module = importlib.import_module(_name)
         _mod_class = getattr(_module, "AgentPlatform")
@@ -212,31 +210,34 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     def _connector_module(self):
         """Load connector module"""
 
-        mod_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "connector")
-        sys.path.append(mod_dir)
-
         LOGGER.info(
             "%s Loading connector module: %s", LOG_PREFIX, self._config.connector
         )
-        conn_module = os.path.join(mod_dir, f"{self._config.connector}.py")
-
+        sys.path.append(CONN_DIR)
+        conn_module = os.path.join(CONN_DIR, f"{self._config.connector}.py")
         _name = pathlib.Path(conn_module).stem
         _module = importlib.import_module(_name)
         _mod_class = getattr(_module, "Connector")
 
-        self._connected_event.clear()
+
         client_id = f"homeagent_{self._config.hostname}_{int(time.time())}"
         self._connector = _mod_class(
             self._config, self._connected_event, self._running, client_id
         )
 
-        self._connector.callback(self.message_receive)
+        self._connector.set_callback(self.message_receive)
         self._connector.set_will(f"{self._config.device.topic}/status", OFFLINE)
         for topic in self._config.subscriptions:
             LOGGER.info("%s Connector subscribe: %s", LOG_PREFIX, topic)
             self._connector.subscribe_to(topic)
 
-        self._connector.start()
+        self._connected_event.clear()
+        try:
+            self._connector.start()
+
+        except (ConnectionRefusedError, ConnectionError) as err:
+            LOGGER.error("%s Failed to connect to Home Assistant", LOG_PREFIX)
+            LOGGER.error(err)
 
         if not self._connected_event.wait(15):
             LOGGER.error(
@@ -255,15 +256,11 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
 
     ##########################################
     def _load_hardware(self):
-        """Load hardware modules"""
-        hw_dir = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)),
-            "hardware",
-        )
-        sys.path.append(hw_dir)
+        """Load hardware modules"""  
 
-        LOGGER.debug("%s Loading HW modules from %s", LOG_PREFIX, hw_dir)
-        hw_mods = glob.glob(os.path.join(hw_dir, "*.py"))
+        LOGGER.debug("%s Loading HW modules from %s", LOG_PREFIX, HW_DIR)
+        sys.path.append(HW_DIR)
+        hw_mods = glob.glob(os.path.join(HW_DIR, "*.py"))
 
         for _mod in hw_mods:
             _name = pathlib.Path(_mod).stem
@@ -298,14 +295,14 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     def _load_modules(self):
         """Load sensor modules"""
 
-        mod_dir = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)),
-            f"modules/{self._config.platform}",
+        modules_dir = os.path.join(
+            MOD_DIR,
+            self._config.platform,
         )
-        sys.path.append(mod_dir)
+        sys.path.append(modules_dir)
 
-        LOGGER.debug("%s Loading sensor modules from %s", LOG_PREFIX, mod_dir)
-        _mods = glob.glob(os.path.join(mod_dir, "*.py"))
+        LOGGER.debug("%s Loading sensor modules from %s", LOG_PREFIX, modules_dir)
+        _mods = glob.glob(os.path.join(modules_dir, "*.py"))
 
         for _mod in _mods:
             _name = pathlib.Path(_mod).stem

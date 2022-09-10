@@ -6,10 +6,10 @@ import threading
 import json
 
 
-from utilities.log import LOGGER
-from const import STATE, ATTRIBS, DEVICE
+from service.log import LOGGER
+from service.const import STATE, ATTRIBS, DEVICE
 
-LOG_PREFIX = "[State]"
+LOG_PREFIX = r"[State]"
 ##########################################
 class ThreadSafeDict(dict):
     """Thread safe dict for sharing data between threads"""

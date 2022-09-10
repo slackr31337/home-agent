@@ -4,8 +4,8 @@ import unittest
 import threading
 
 
-from scheduler import Scheduler
-from utilities.states import ThreadSafeDict
+from service.scheduler import Scheduler
+from service.states import ThreadSafeDict
 
 
 class TestScheduler(unittest.TestCase):

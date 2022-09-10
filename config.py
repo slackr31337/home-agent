@@ -6,10 +6,15 @@ import tempfile
 import yaml
 
 
-from utilities.version import __version__
+from service.version import __version__
 
 CONFIG_FILE = "config.yaml"
 TMP_DIR = tempfile.tempdir
+BASE_DIR = os.path.dirname(os.path.realpath(__file__))
+OS_DIR = os.path.join(BASE_DIR, "os")
+MOD_DIR = os.path.join(BASE_DIR, "modules")
+CONN_DIR = os.path.join(BASE_DIR, "connector")
+HW_DIR = os.path.join(BASE_DIR, "hardware")
 HOSTNAME = str(platform.uname().node).lower()
 PLATFORM = str(platform.system()).lower()
 
@@ -155,10 +160,10 @@ TYPE_MAP = {
 APP_NAME = "Home Agent endpoint"
 
 #########################################
-def load_config(_file=CONFIG_FILE):
+def load_config(config_file:str=CONFIG_FILE)->dict:
     """Load configuration from yaml"""
 
-    with open(_file, "r", encoding="utf-8") as conf:
+    with open(config_file, "r", encoding="utf-8") as conf:
         _config = yaml.safe_load(conf)
 
     params = {
