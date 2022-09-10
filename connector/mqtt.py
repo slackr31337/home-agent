@@ -74,12 +74,12 @@ class Connector(Mqtt):
                 username=self._config.mqtt.user, password=self._config.mqtt.password
             )
 
-        #self.reconnect_delay_set(min_delay=3, max_delay=30)
-        self.on_connect = self._on_connect
-        self.on_disconnect = self._on_disconnect
-        self.on_subscribe = self._on_subscribe
-        self.on_message = self._on_message
-        self.on_log = self._on_log
+        self.reconnect_delay_set(min_delay=3, max_delay=30)
+        self.on_connect = self._callback_connect
+        self.on_disconnect = self._callback_disconnect
+        self.on_subscribe = self._callback_subscribe
+        self.on_message = self._callback_message
+        self.on_log = self._callback_log
 
         if self._config.mqtt.tls or self._config.mqtt.port == 8883:
             LOGGER.info(
@@ -131,7 +131,8 @@ class Connector(Mqtt):
         self._connected_event.clear()
         try:
             self.connect(
-                host=self._config.mqtt.host, port=self._config.mqtt.port,
+                host=self._config.mqtt.host,
+                port=self._config.mqtt.port,
             )
         except socket.timeout as err:
             LOGGER.error("%s Failed to connect to MQTT broker. %s", LOG_PREFIX, err)
@@ -146,7 +147,7 @@ class Connector(Mqtt):
         return self._connected
 
     ##########################################
-    def _on_connect(
+    def _callback_connect(
         self, mqttc, userdata, flags, response_code
     ):  # pylint: disable=unused-argument, invalid-name
         """MQTT broker connect event"""
@@ -175,7 +176,7 @@ class Connector(Mqtt):
             )
 
     ##########################################
-    def _on_disconnect(
+    def _callback_disconnect(
         self, mqttc, obj, response_code
     ):  # pylint: disable=unused-argument, invalid-name
         """MQTT broker was disconnected"""
@@ -196,16 +197,18 @@ class Connector(Mqtt):
         elif self._tries > 15:
             LOGGER.info("%s [%s] Attempting re-connect.", LOG_PREFIX, self._tries)
             self.stop()
-            self.setup()
+            self._setup()
             self.start()
 
     ##########################################
-    def _on_log(self, mqttc, obj, level, string):  # pylint: disable=unused-argument
+    def _callback_log(
+        self, mqttc, obj, level, string
+    ):  # pylint: disable=unused-argument
         """Log string from MQTT client"""
-        LOGGER.info("%s [%s] %s",LOG_PREFIX, level, string)
+        LOGGER.debug("%s [%s] %s", LOG_PREFIX, level, string)
 
     ##########################################
-    def _on_message(
+    def _callback_message(
         self, mqttc, obj, msg
     ):  # pylint: disable=unused-argument, invalid-name
         """Call back function for recieved MQTT message"""
@@ -245,12 +248,12 @@ class Connector(Mqtt):
         self._callback = callback
 
     ##########################################
-    def set_will(self, topic:str, payload:str):
+    def set_will(self, topic: str, payload: str):
         """Set exit() will message"""
         self.will_set(topic, payload=payload, qos=0, retain=False)
 
     ##########################################
-    def _on_subscribe(
+    def _callback_subscribe(
         self, mqttc, obj, mid, granted_qos
     ):  # pylint: disable=unused-argument
         """Call back function for subcribe to topic"""
@@ -263,7 +266,7 @@ class Connector(Mqtt):
         )
 
     ##########################################
-    def subscribe_to(self, topic:str=None):
+    def subscribe_to(self, topic: str = None):
         """Add topic to subscribe"""
         if not topic:
             return
@@ -278,7 +281,7 @@ class Connector(Mqtt):
         payload: dict,
         qos: int = 1,
         retain: bool = False,
-    )->bool:
+    ) -> bool:
         """Publish payload to MQTT topic"""
         if not self._running.is_set():
             return False
@@ -287,7 +290,10 @@ class Connector(Mqtt):
             self._connect()
 
         if isinstance(payload, dict):
-            payload = json.dumps(payload, default=str,)
+            payload = json.dumps(
+                payload,
+                default=str,
+            )
 
         LOGGER.debug("%s publish: %s", LOG_PREFIX, topic)
 
@@ -302,6 +308,6 @@ class Connector(Mqtt):
         return True
 
     ##########################################
-    def ping(self, topic: str, src: str)->bool:
+    def ping(self, topic: str, src: str) -> bool:
         """Send ping message"""
         return self.pub(topic, {"ping": "request", "src": src})

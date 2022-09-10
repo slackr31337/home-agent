@@ -70,23 +70,23 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         sensors: dict = None,
     ):
         """Init class"""
-        self._connected_event:threading.Event = threading.Event()
-        self._config:dict = config
-        self._running:threading.Event = running
-        self._sched:Scheduler = sched
+        self._connected_event: threading.Event = threading.Event()
+        self._config: dict = config
+        self._running: threading.Event = running
+        self._sched: Scheduler = sched
         self._sensors = ThreadSafeDict()
         self._states = ThreadSafeDict()
         self._attribs = ThreadSafeDict()
         self._stats = {LAST: {}}
         self._connector = None
-        self._ha_connected:bool = False
-        self._modules:dict = {}
-        self._callback:dict = {}
-        self._services:dict = {}
-        self._last_sensors:dict = {}
+        self._ha_connected: bool = False
+        self._modules: dict = {}
+        self._callback: dict = {}
+        self._services: dict = {}
+        self._last_sensors: dict = {}
         self.platform_class = None
-        self.device:dict = {}
-        self.icons:dict = {}
+        self.device: dict = {}
+        self.icons: dict = {}
 
         if sensors is None:
             sensors = self._config.sensors.get(PUBLISH)
@@ -202,7 +202,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                 OS_DIR,
             )
             raise Exception("OS module not found")
-        
+
         _name = pathlib.Path(os_module).stem
         _module = importlib.import_module(_name)
         _mod_class = getattr(_module, "AgentPlatform")
@@ -220,7 +220,6 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         _name = pathlib.Path(conn_module).stem
         _module = importlib.import_module(_name)
         _mod_class = getattr(_module, "Connector")
-
 
         client_id = f"homeagent_{self._config.hostname}_{int(time.time())}"
         self._connector = _mod_class(
@@ -247,7 +246,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                 LOG_PREFIX,
                 self._connector.connected(),
             )
-            #if not self._config.args.debug:
+            # if not self._config.args.debug:
             #    raise Exception(
             #        "Failed to get connection to Home Assistant. Check auth password or token."
             #    )
@@ -259,7 +258,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
 
     ##########################################
     def _load_hardware(self):
-        """Load hardware modules"""  
+        """Load hardware modules"""
         if self._config.platform != LINUX:
             return
 
@@ -535,18 +534,16 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         with self._attribs as _attribs:
             attribs = _attribs.copy()
 
-        _file = f"{self._config.dir}/state.json"
-        save_states(_file, states, attribs, self.device)
+        save_states(self._config.state_file, states, attribs, self.device)
 
     ##########################################
     def _load_state(self):
         """Write state dict to file"""
 
-        _file = f"{self._config.dir}/state.json"
-        if not os.path.exists(_file):
+        if not os.path.exists(self._config.state_file):
             return
 
-        data = load_states(_file)
+        data = load_states(self._config.state_file)
         if not isinstance(data, dict):
             return
 

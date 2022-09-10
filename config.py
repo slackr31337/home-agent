@@ -9,7 +9,7 @@ import yaml
 from service.version import __version__
 
 CONFIG_FILE = "config.yaml"
-TMP_DIR = tempfile.tempdir
+TMP_DIR = tempfile.gettempdir()
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 OS_DIR = os.path.join(BASE_DIR, "os")
 MOD_DIR = os.path.join(BASE_DIR, "modules")
@@ -160,10 +160,10 @@ TYPE_MAP = {
 APP_NAME = "Home Agent endpoint"
 
 #########################################
-def load_config(args:dict)->dict:
+def load_config(args: dict) -> dict:
     """Load configuration from yaml"""
 
-    config_file = args.get("config",CONFIG_FILE)
+    config_file = args.get("config", CONFIG_FILE)
     with open(config_file, "r", encoding="utf-8") as conf:
         _config = yaml.safe_load(conf)
 
@@ -172,6 +172,7 @@ def load_config(args:dict)->dict:
         "app_ver": f"{APP_NAME} {__version__}",
         "dir": BASE_DIR,
         "temp_dir": TMP_DIR,
+        "state_file": f"{TMP_DIR}/homeagent_state.json",
         "args": args,
         "device": {
             "topic": DEVICE_TOPIC,
