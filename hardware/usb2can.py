@@ -8,8 +8,8 @@ import usb
 import can
 
 
-from utilities.log import LOGGER
-from utilities.states import ThreadSafeDict
+from service.log import LOGGER
+from service.states import ThreadSafeDict
 from config import Config
 
 CAN_DEVICE = "can0"

@@ -11,6 +11,8 @@ import glob
 import json
 import ipaddress
 
+from psutil import LINUX
+
 
 from service.log import LOGGER
 from service.scheduler import Scheduler
@@ -151,7 +153,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         self._sched.queue(self.collector, self._config.intervals.collector, True)
 
         LOGGER.info(
-            "%s Starting publisher task. interval: %s",
+            "%s Starting publish task. interval: %s",
             LOG_PREFIX,
             self._config.intervals.publish,
         )
@@ -239,15 +241,16 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             LOGGER.error("%s Failed to connect to Home Assistant", LOG_PREFIX)
             LOGGER.error(err)
 
-        if not self._connected_event.wait(15):
+        if not self._connected_event.wait(10):
             LOGGER.error(
                 "%s Connector timeout. Connected: %s",
                 LOG_PREFIX,
                 self._connector.connected(),
             )
-            raise Exception(
-                "Failed to get connection to Home Assistant. Check auth password or token."
-            )
+            #if not self._config.args.debug:
+            #    raise Exception(
+            #        "Failed to get connection to Home Assistant. Check auth password or token."
+            #    )
 
         LOGGER.info(
             "%s Connector is connected: %s", LOG_PREFIX, self._connector.connected()
@@ -257,6 +260,8 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     ##########################################
     def _load_hardware(self):
         """Load hardware modules"""  
+        if self._config.platform != LINUX:
+            return
 
         LOGGER.debug("%s Loading HW modules from %s", LOG_PREFIX, HW_DIR)
         sys.path.append(HW_DIR)

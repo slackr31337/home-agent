@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run the HomeAgent as a service"""
 
+from distutils.debug import DEBUG
 import sys
 import threading
 import traceback
@@ -48,19 +49,19 @@ def main():
     LOGGER.info("Starting %s", APP_NAME)
     _args = parse_args(sys.argv[1:], APP_NAME)
 
-    if _args.debug:
+    if _args.get(DEBUG):
         level = logging.getLevelName("DEBUG")
         LOGGER.setLevel(level)
         LOGGER.debug("Debug enabled")
 
-    if not _args.service:
+    if _args.get("service") is False:
         LOGGER.error("Must use -s argument to run as a service")
         sys.exit(2)
 
-    LOGGER.info("%s Loading config file: %s", LOG_PREFIX, _args.config)
-    _config = Config(load_config(_args.config))
-
     try:
+        LOGGER.info("%s Loading config file: %s", LOG_PREFIX, _args.get("config"))
+        _config = Config(load_config(_args))
+
         run_service(_config)
 
     except Exception as err:  # pylint: disable=broad-except

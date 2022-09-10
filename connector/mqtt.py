@@ -131,7 +131,7 @@ class Connector(Mqtt):
         self._connected_event.clear()
         try:
             self.connect(
-                host=self._config.mqtt.host, port=self._config.mqtt.port, 
+                host=self._config.mqtt.host, port=self._config.mqtt.port,
             )
         except socket.timeout as err:
             LOGGER.error("%s Failed to connect to MQTT broker. %s", LOG_PREFIX, err)

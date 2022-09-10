@@ -160,17 +160,19 @@ TYPE_MAP = {
 APP_NAME = "Home Agent endpoint"
 
 #########################################
-def load_config(config_file:str=CONFIG_FILE)->dict:
+def load_config(args:dict)->dict:
     """Load configuration from yaml"""
 
+    config_file = args.get("config",CONFIG_FILE)
     with open(config_file, "r", encoding="utf-8") as conf:
         _config = yaml.safe_load(conf)
 
     params = {
         "app_name": APP_NAME,
         "app_ver": f"{APP_NAME} {__version__}",
-        "dir": os.path.dirname(__file__),
+        "dir": BASE_DIR,
         "temp_dir": TMP_DIR,
+        "args": args,
         "device": {
             "topic": DEVICE_TOPIC,
             "availability": DEVICE_STATUS,
@@ -189,6 +191,7 @@ def load_config(config_file:str=CONFIG_FILE)->dict:
             "icons": ICON_MAP,
             "prefix_icons": ICON_PREFIX_MAP,
         },
+        "intervals": {"collector": 30, "publisher": 60},
     }
     params.update(_config)
     params["hostname"] = HOSTNAME

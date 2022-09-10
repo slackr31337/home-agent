@@ -15,7 +15,7 @@ from service.util import get_boot
 from device.raspberrypi import RaspberryPi
 
 SKIP_MOUNTS = ["live", "docker", "subvol", "tmp"]
-LOG_PREFIX = "[Linux]"
+LOG_PREFIX = r"[Linux]"
 ##########################################
 class AgentPlatform:
     """OS Module for Linux"""
