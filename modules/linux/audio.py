@@ -32,6 +32,14 @@ class AgentModule:
     sensor_types = {
         "audio_mute": "switch",
     }
+    sensor_attribs = {
+        "switch": {
+            "topic": "~/state",
+            "value_template": "{{ value_json.state }}",
+            "json_attributes_topic": "~/attrib",
+            "command_topic": "~/set",
+        },
+    }
     sensor_class = {"audio_volume": {"unit_of_measurement": "%"}}
     sensor_icons = {
         "audio_volume": "volume-high",
@@ -45,6 +53,7 @@ class AgentModule:
     def __init__(self, config: dict):
         self._config = config
         self._available = False
+        self._card = None
         self._channel = None
         self._mixer = None
         self._setup()
@@ -77,7 +86,9 @@ class AgentModule:
             LOGGER.error("%s Mixer not found [%s]", LOG_PREFIX, self._channel)
             return
 
-        LOGGER.info("%s Setup: %s", LOG_PREFIX, self._mixer.mixer())
+        self._card = self._mixer.mixer()
+        LOGGER.info("%s Setup: %s", LOG_PREFIX, self._card)
+
         self._available = True
 
     ##########################################
@@ -89,20 +100,27 @@ class AgentModule:
     def get(self, item: str):
         """Get sensor value"""
 
+        attrib = {"mixer": self._card}
         value = None
         if item.endswith("volume"):
             volume = self._mixer.getvolume()
+            idx = 0
+            for item in volume:
+                idx += 1
+                attrib[f"channel{idx}"] = item
+
             value = int(volume[0])
 
         elif item.endswith("mixer"):
             value = self._mixer.mixer()
+            attrib = {}
 
         elif item.endswith("mute"):
             mute = self._mixer.getmute()[0]
             value = STATE_MAP.get(mute)
 
         LOGGER.debug("%s get %s=%s", LOG_PREFIX, item, value)
-        return value, None
+        return value, attrib
 
     ##########################################
     def set(self, item: str, value):
