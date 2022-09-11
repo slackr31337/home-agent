@@ -6,7 +6,7 @@ import ctypes.util
 from mss import mss
 
 
-from utilities.log import LOGGER
+from service.log import LOGGER
 from config import HOSTNAME
 
 LOG_PREFIX = "[display]"
@@ -198,7 +198,11 @@ class AgentModule:
             )
 
         imagestring = None
-        with open(filename, "rb") as _image:
-            imagestring = _image.read()
+        try:
+            with open(filename, "rb") as _image:
+                imagestring = _image.read()
+
+        except PermissionError:
+            LOGGER.error("%s failed to save screen capture. Permission denied")
 
         return bytearray(imagestring), None

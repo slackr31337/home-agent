@@ -1,5 +1,6 @@
 """Constants used in module"""
 
+DEBUG = "debug"
 UPTIME = "uptime"
 RUNTIME = "runtime"
 LOCATION = "location"

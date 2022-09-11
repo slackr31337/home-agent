@@ -8,8 +8,8 @@ from pynmeagps import NMEAReader
 import pynmeagps.exceptions as nme
 
 
-from utilities.log import LOGGER
-from utilities.states import ThreadSafeDict
+from service.log import LOGGER
+from service.states import ThreadSafeDict
 from config import Config
 
 LOG_PREFIX = "[GPS]"

@@ -7,8 +7,8 @@ https://github.com/geeekpi/dockerpi/tree/master/4channelRelay
 from smbus2 import SMBus
 
 
-from utilities.log import LOGGER
-from utilities.states import ThreadSafeDict
+from service.log import LOGGER
+from service.states import ThreadSafeDict
 from config import Config
 
 DEVICE_BUS = 1

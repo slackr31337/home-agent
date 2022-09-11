@@ -10,12 +10,12 @@ from cpuinfo import get_cpu_info
 from dmidecode import DMIDecode
 
 
-from utilities.log import LOGGER
-from utilities.util import get_boot
+from service.log import LOGGER
+from service.util import get_boot
 from device.raspberrypi import RaspberryPi
 
 SKIP_MOUNTS = ["live", "docker", "subvol", "tmp"]
-LOG_PREFIX = "[Linux]"
+LOG_PREFIX = r"[Linux]"
 ##########################################
 class AgentPlatform:
     """OS Module for Linux"""

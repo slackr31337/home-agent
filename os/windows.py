@@ -8,10 +8,10 @@ from cpuinfo import get_cpu_info
 import wmi
 
 
-from utilities.log import LOGGER
-from utilities.util import get_boot
+from service.log import LOGGER
+from service.util import get_boot
 
-LOG_PREFIX = "[Windows]"
+LOG_PREFIX = r"[Windows]"
 ########################################################
 class AgentPlatform:
     """OS Module for Windows"""
@@ -83,7 +83,7 @@ class AgentPlatform:
         LOGGER.debug(self._sysinfo)
 
     ########################################################
-    def _update_system_info(self):
+    def _update_system_info(self)->dict:
         """Build system information and return dict"""
 
         users = 0

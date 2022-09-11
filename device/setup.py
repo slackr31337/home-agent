@@ -1,8 +1,8 @@
 """Functions to setup devices"""
 
 
-from utilities.log import LOGGER
-from const import (
+from service.log import LOGGER
+from service.const import (
     DEVICE,
     NAME,
     IDENTIFIERS,
@@ -16,29 +16,29 @@ from const import (
     PAYLOAD,
 )
 
-LOG_PREFIX = "[Device]"
+LOG_PREFIX = r"[Device]"
 ##########################################
-def setup_device(_config, _states):
+def setup_device(config:dict, states:dict):
     """Return dict with device data"""
 
-    if _config.device.identifiers is None:
+    if config.device.identifiers is None:
         LOGGER.error("%s setup_device() Missing device identifier")
         raise Exception("Missing device identifier")
 
     return {
         DEVICE: {
-            NAME: _config.host.friendly_name,
-            IDENTIFIERS: _config.device.identifiers,
-            CONNECTIONS: _config.device.connections,
-            MANUFACTURER: _states.get(MANUFACTURER),
-            MODEL: _states.get(MODEL),
-            "sw_version": _states.get("firmware"),
+            NAME: config.host.friendly_name,
+            IDENTIFIERS: config.device.identifiers,
+            CONNECTIONS: config.device.connections,
+            MANUFACTURER: states.get(MANUFACTURER),
+            MODEL: states.get(MODEL),
+            "sw_version": states.get("firmware"),
         },
     }
 
 
 ########################################################
-def setup_sensor(_config, sensor="Status", sensor_type=None, attribs=None):
+def setup_sensor(_config:dict, sensor:str="Status", sensor_type:str=None, attribs:dict=None)->dict:
     """Return dict with sensor config"""
     device_name = _config.hostname.lower().replace(" ", "_")
     sensor_name = sensor.lower().replace(" ", "_")

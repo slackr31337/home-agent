@@ -3,6 +3,7 @@ Audio module for Linux
 pyalsaaudio
 apt-get install libasound2-dev
 """
+# pylint: skip-file
 # pyalsaaudio; sys_platform == 'linux'
 
 try:
@@ -17,7 +18,7 @@ from service.log import LOGGER
 
 MUTE_MAP = {"ON": 1, "OFF": 0}
 STATE_MAP = {1: "ON", 0: "OFF"}
-LOG_PREFIX = r"[Audio]"
+LOG_PREFIX = "[Audio]"
 ###########################################
 class AgentModule:
     """Class for audio device support"""
@@ -32,14 +33,6 @@ class AgentModule:
     sensor_types = {
         "audio_mute": "switch",
     }
-    sensor_attribs = {
-        "switch": {
-            "topic": "~/state",
-            "value_template": "{{ value_json.state }}",
-            "json_attributes_topic": "~/attrib",
-            "command_topic": "~/set",
-        },
-    }
     sensor_class = {"audio_volume": {"unit_of_measurement": "%"}}
     sensor_icons = {
         "audio_volume": "volume-high",
@@ -53,7 +46,6 @@ class AgentModule:
     def __init__(self, config: dict):
         self._config = config
         self._available = False
-        self._card = None
         self._channel = None
         self._mixer = None
         self._setup()
@@ -86,9 +78,7 @@ class AgentModule:
             LOGGER.error("%s Mixer not found [%s]", LOG_PREFIX, self._channel)
             return
 
-        self._card = self._mixer.mixer()
-        LOGGER.info("%s Setup: %s", LOG_PREFIX, self._card)
-
+        LOGGER.info("%s Setup: %s", LOG_PREFIX, self._mixer.mixer())
         self._available = True
 
     ##########################################
@@ -100,27 +90,20 @@ class AgentModule:
     def get(self, item: str):
         """Get sensor value"""
 
-        attrib = {"mixer": self._card}
         value = None
         if item.endswith("volume"):
             volume = self._mixer.getvolume()
-            idx = 0
-            for item in volume:
-                idx += 1
-                attrib[f"channel{idx}"] = item
-
             value = int(volume[0])
 
         elif item.endswith("mixer"):
             value = self._mixer.mixer()
-            attrib = {}
 
         elif item.endswith("mute"):
             mute = self._mixer.getmute()[0]
             value = STATE_MAP.get(mute)
 
         LOGGER.debug("%s get %s=%s", LOG_PREFIX, item, value)
-        return value, attrib
+        return value, None
 
     ##########################################
     def set(self, item: str, value):

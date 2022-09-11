@@ -5,7 +5,7 @@ import asyncio
 from bleak import BleakScanner
 
 
-from utilities.log import LOGGER
+from service.log import LOGGER
 
 SLUG = "bluetooth"
 LOG_PREFIX = f"[{SLUG}]"

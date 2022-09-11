@@ -4,7 +4,7 @@ import time
 from bleson import get_provider, Observer
 
 
-from utilities.log import LOGGER
+from service.log import LOGGER
 
 SLUG = "bluetooth"
 LOG_PREFIX = f"[{SLUG}]"

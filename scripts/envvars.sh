@@ -1,4 +1,3 @@
-#!/bin/bash
 HOMEAGENT=/opt/home-agent
 VIRTUAL_ENV=${HOMEAGENT}/env
 PYTHON_HOME=${VIRTUAL_ENV}

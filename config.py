@@ -6,10 +6,15 @@ import tempfile
 import yaml
 
 
-from utilities.version import __version__
+from service.version import __version__
 
 CONFIG_FILE = "config.yaml"
-TMP_DIR = tempfile.tempdir
+TMP_DIR = tempfile.gettempdir()
+BASE_DIR = os.path.dirname(os.path.realpath(__file__))
+OS_DIR = os.path.join(BASE_DIR, "os")
+MOD_DIR = os.path.join(BASE_DIR, "modules")
+CONN_DIR = os.path.join(BASE_DIR, "connector")
+HW_DIR = os.path.join(BASE_DIR, "hardware")
 HOSTNAME = str(platform.uname().node).lower()
 PLATFORM = str(platform.system()).lower()
 
@@ -155,17 +160,20 @@ TYPE_MAP = {
 APP_NAME = "Home Agent endpoint"
 
 #########################################
-def load_config(_file=CONFIG_FILE):
+def load_config(args: dict) -> dict:
     """Load configuration from yaml"""
 
-    with open(_file, "r", encoding="utf-8") as conf:
+    config_file = args.get("config", CONFIG_FILE)
+    with open(config_file, "r", encoding="utf-8") as conf:
         _config = yaml.safe_load(conf)
 
     params = {
         "app_name": APP_NAME,
         "app_ver": f"{APP_NAME} {__version__}",
-        "dir": os.path.dirname(__file__),
+        "dir": BASE_DIR,
         "temp_dir": TMP_DIR,
+        "state_file": f"{TMP_DIR}/homeagent_state.json",
+        "args": args,
         "device": {
             "topic": DEVICE_TOPIC,
             "availability": DEVICE_STATUS,
@@ -184,6 +192,7 @@ def load_config(_file=CONFIG_FILE):
             "icons": ICON_MAP,
             "prefix_icons": ICON_PREFIX_MAP,
         },
+        "intervals": {"collector": 30, "publisher": 60},
     }
     params.update(_config)
     params["hostname"] = HOSTNAME

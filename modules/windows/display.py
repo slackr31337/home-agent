@@ -5,10 +5,10 @@ import ctypes
 from mss import mss
 
 
-from utilities.log import LOGGER
+from service.log import LOGGER
 from config import HOSTNAME
 
-LOG_PREFIX = "[display]"
+LOG_PREFIX = r"[display]"
 ################################################################
 class AgentModule:
     """Agent class for display sensors"""

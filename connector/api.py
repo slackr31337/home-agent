@@ -5,12 +5,12 @@ import asyncio
 from hass_client import HomeAssistantClient
 
 
-from utilities.version import __version__
-from utilities.log import LOGGER
-from const import TOPIC, PAYLOAD
+from service.version import __version__
+from service.log import LOGGER
+from service.const import TOPIC, PAYLOAD
 
 
-LOG_PREFIX = "[homeassistant_api]"
+LOG_PREFIX = r"[homeassistant_api]"
 #########################################
 class Connector:
 

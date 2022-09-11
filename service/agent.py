@@ -11,14 +11,17 @@ import glob
 import json
 import ipaddress
 
+from psutil import LINUX
 
-from utilities.log import LOGGER
-from utilities.states import ThreadSafeDict, load_states, save_states
-from utilities.util import calc_elasped, gps_moving, gps_update
+
+from service.log import LOGGER
+from service.scheduler import Scheduler
+from service.states import ThreadSafeDict, load_states, save_states
+from service.util import calc_elasped, gps_moving, gps_update
 from device.setup import setup_device, setup_sensor
-from scheduler import Scheduler
-from config import ONLINE_ATTRIB, Config
-from const import (
+
+from config import CONN_DIR, HW_DIR, MOD_DIR, ONLINE_ATTRIB, OS_DIR, Config
+from service.const import (
     ATTRIBS,
     STATE,
     TOPIC,
@@ -53,7 +56,7 @@ from const import (
     GPS,
 )
 
-LOG_PREFIX = "[HomeAgent]"
+LOG_PREFIX = r"[HomeAgent]"
 ##########################################
 class HomeAgent:  # pylint:disable=too-many-instance-attributes
     """Class to collect and report endpoint data"""
@@ -67,23 +70,23 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         sensors: dict = None,
     ):
         """Init class"""
-        self._connected_event = threading.Event()
-        self._config = config
-        self._running = running
-        self._sched = sched
+        self._connected_event: threading.Event = threading.Event()
+        self._config: dict = config
+        self._running: threading.Event = running
+        self._sched: Scheduler = sched
         self._sensors = ThreadSafeDict()
         self._states = ThreadSafeDict()
         self._attribs = ThreadSafeDict()
         self._stats = {LAST: {}}
         self._connector = None
-        self._ha_connected = False
-        self._modules = {}
-        self._callback = {}
-        self._services = {}
-        self._last_sensors = {}
+        self._ha_connected: bool = False
+        self._modules: dict = {}
+        self._callback: dict = {}
+        self._services: dict = {}
+        self._last_sensors: dict = {}
         self.platform_class = None
-        self.device = {}
-        self.icons = {}
+        self.device: dict = {}
+        self.icons: dict = {}
 
         if sensors is None:
             sensors = self._config.sensors.get(PUBLISH)
@@ -150,7 +153,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         self._sched.queue(self.collector, self._config.intervals.collector, True)
 
         LOGGER.info(
-            "%s Starting publisher task. interval: %s",
+            "%s Starting publish task. interval: %s",
             LOG_PREFIX,
             self._config.intervals.publish,
         )
@@ -184,24 +187,21 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     def _os_module(self):
         """Load OS module"""
 
-        mod_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "os")
-        sys.path.append(mod_dir)
-
         LOGGER.info(
             "%s Loading OS module: %s",
             LOG_PREFIX,
             self._config.platform,
         )
-        if not os.path.exists(f"{mod_dir}/{self._config.platform}.py"):
+        sys.path.append(OS_DIR)
+        os_module = os.path.join(OS_DIR, f"{self._config.platform}.py")
+        if not os.path.exists(os_module):
             LOGGER.error(
                 "%s OS module [%s] not found in %s",
                 LOG_PREFIX,
                 self._config.platform,
-                mod_dir,
+                OS_DIR,
             )
             raise Exception("OS module not found")
-
-        os_module = os.path.join(mod_dir, f"{self._config.platform}.py")
 
         _name = pathlib.Path(os_module).stem
         _module = importlib.import_module(_name)
@@ -212,41 +212,44 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     def _connector_module(self):
         """Load connector module"""
 
-        mod_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "connector")
-        sys.path.append(mod_dir)
-
         LOGGER.info(
             "%s Loading connector module: %s", LOG_PREFIX, self._config.connector
         )
-        conn_module = os.path.join(mod_dir, f"{self._config.connector}.py")
-
+        sys.path.append(CONN_DIR)
+        conn_module = os.path.join(CONN_DIR, f"{self._config.connector}.py")
         _name = pathlib.Path(conn_module).stem
         _module = importlib.import_module(_name)
         _mod_class = getattr(_module, "Connector")
 
-        self._connected_event.clear()
         client_id = f"homeagent_{self._config.hostname}_{int(time.time())}"
         self._connector = _mod_class(
             self._config, self._connected_event, self._running, client_id
         )
 
-        self._connector.message_callback(self.message_receive)
+        self._connector.set_callback(self.message_receive)
         self._connector.set_will(f"{self._config.device.topic}/status", OFFLINE)
         for topic in self._config.subscriptions:
             LOGGER.info("%s Connector subscribe: %s", LOG_PREFIX, topic)
             self._connector.subscribe_to(topic)
 
-        self._connector.start()
+        self._connected_event.clear()
+        try:
+            self._connector.start()
 
-        if not self._connected_event.wait(15):
+        except (ConnectionRefusedError, ConnectionError) as err:
+            LOGGER.error("%s Failed to connect to Home Assistant", LOG_PREFIX)
+            LOGGER.error(err)
+
+        if not self._connected_event.wait(10):
             LOGGER.error(
                 "%s Connector timeout. Connected: %s",
                 LOG_PREFIX,
                 self._connector.connected(),
             )
-            raise Exception(
-                "Failed to get connection to Home Assistant. Check auth password or token."
-            )
+            # if not self._config.args.debug:
+            #    raise Exception(
+            #        "Failed to get connection to Home Assistant. Check auth password or token."
+            #    )
 
         LOGGER.info(
             "%s Connector is connected: %s", LOG_PREFIX, self._connector.connected()
@@ -256,14 +259,12 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     ##########################################
     def _load_hardware(self):
         """Load hardware modules"""
-        hw_dir = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)),
-            "hardware",
-        )
-        sys.path.append(hw_dir)
+        if self._config.platform != LINUX:
+            return
 
-        LOGGER.debug("%s Loading HW modules from %s", LOG_PREFIX, hw_dir)
-        hw_mods = glob.glob(os.path.join(hw_dir, "*.py"))
+        LOGGER.debug("%s Loading HW modules from %s", LOG_PREFIX, HW_DIR)
+        sys.path.append(HW_DIR)
+        hw_mods = glob.glob(os.path.join(HW_DIR, "*.py"))
 
         for _mod in hw_mods:
             _name = pathlib.Path(_mod).stem
@@ -298,14 +299,14 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     def _load_modules(self):
         """Load sensor modules"""
 
-        mod_dir = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)),
-            f"modules/{self._config.platform}",
+        modules_dir = os.path.join(
+            MOD_DIR,
+            self._config.platform,
         )
-        sys.path.append(mod_dir)
+        sys.path.append(modules_dir)
 
-        LOGGER.debug("%s Loading sensor modules from %s", LOG_PREFIX, mod_dir)
-        _mods = glob.glob(os.path.join(mod_dir, "*.py"))
+        LOGGER.debug("%s Loading sensor modules from %s", LOG_PREFIX, modules_dir)
+        _mods = glob.glob(os.path.join(modules_dir, "*.py"))
 
         for _mod in _mods:
             _name = pathlib.Path(_mod).stem
@@ -313,8 +314,15 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                 "%s Import module: %s-%s", LOG_PREFIX, self._config.platform, _name
             )
 
-            _module = importlib.import_module(_name)
-            if not hasattr(_module, "AgentModule"):
+            try:
+                _module = importlib.import_module(_name)
+
+            except Exception as err:  # pylint: disable=broad-except
+                LOGGER.error("%s Failed to load module %s. %s", LOG_PREFIX, _name, err)
+                LOGGER.error(traceback.format_exc())
+                # continue
+
+            if _module and not hasattr(_module, "AgentModule"):
                 LOGGER.error(
                     "%s Failed to load module %s. AgentModule class not found",
                     LOG_PREFIX,
@@ -329,7 +337,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
 
             except Exception as err:  # pylint: disable=broad-except
                 LOGGER.error("%s Failed to load module %s. %s", LOG_PREFIX, _name, err)
-                LOGGER.debug(traceback.format_exc())
+                LOGGER.error(traceback.format_exc())
                 continue
 
             if not _class.available():
@@ -526,18 +534,16 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         with self._attribs as _attribs:
             attribs = _attribs.copy()
 
-        _file = f"{self._config.dir}/state.json"
-        save_states(_file, states, attribs, self.device)
+        save_states(self._config.state_file, states, attribs, self.device)
 
     ##########################################
     def _load_state(self):
         """Write state dict to file"""
 
-        _file = f"{self._config.dir}/state.json"
-        if not os.path.exists(_file):
+        if not os.path.exists(self._config.state_file):
             return
 
-        data = load_states(_file)
+        data = load_states(self._config.state_file)
         if not isinstance(data, dict):
             return
 
@@ -561,7 +567,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             LOGGER.error("%s payload: %s", LOG_PREFIX, payload)
             return False
 
-        return self._connector.publish(topic, payload)
+        return self._connector.pub(topic, payload)
 
     ##########################################
     def message_receive(self, _data: dict):
@@ -713,7 +719,6 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
         }
 
         for _module, mod_class in self._modules.items():
-            # mod_class = self._modules[_module]
             if not hasattr(mod_class, "sensors"):
                 continue
 
@@ -754,10 +759,10 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     def _setup_sensors(self):
         """Publish sensor config to MQTT broker"""
         with self._states as _states:
-            states = _states.copy()
+            states = dict(_states).copy()
 
         with self._sensors as _sensors:
-            sensors = _sensors.copy()
+            sensors = dict(_sensors).copy()
 
         for sensor in tuple(sensors.keys()):
             _state = states.get(sensor)
@@ -927,16 +932,17 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                 else:
                     value = states.get(IP_ADDRESS)
 
-                addr = ipaddress.ip_address(value)
-                if addr in network:
-                    LOGGER.debug(
-                        "%s ip: %s net: %s location: %s",
-                        LOG_PREFIX,
-                        addr,
-                        network,
-                        _loc,
-                    )
-                    location = self._config.locations.get(_loc)
+                if value:
+                    addr = ipaddress.ip_address(value)
+                    if addr in network:
+                        LOGGER.debug(
+                            "%s ip: %s net: %s location: %s",
+                            LOG_PREFIX,
+                            addr,
+                            network,
+                            _loc,
+                        )
+                        location = self._config.locations.get(_loc)
 
         self.message_send({TOPIC: _topic, PAYLOAD: f"{location}"})
 
