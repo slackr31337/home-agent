@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 """Run the HomeAgent as a service"""
 
-from distutils.debug import DEBUG
 import sys
 import threading
 import traceback
 import logging
-
 
 
 from service.states import ThreadSafeDict
@@ -14,6 +12,7 @@ from service.scheduler import Scheduler
 from service.agent_args import parse_args
 from service.agent import LOG_PREFIX, HomeAgent
 from service.log import LOGGER
+from service.const import DEBUG
 from config import APP_NAME, Config, load_config
 
 LOG_PREFIX = r"[HomeAgent]"
@@ -35,7 +34,7 @@ def run_service(config: Config, _sensors=None):
     sched.start()
 
     LOGGER.info("%s Stopping", LOG_PREFIX)
-    #agent.stop()
+    # agent.stop()
 
     if _running:
         _running.clear()
