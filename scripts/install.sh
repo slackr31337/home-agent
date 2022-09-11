@@ -1,5 +1,6 @@
 #!/bin/bash
 PY=$(which python3)
+THIS_USER=$(whoami)
 DIR=/opt/home-agent
 USER=homeagent
 
@@ -15,27 +16,45 @@ echo "Using base dir ${DIR}"
 echo "Intalling Debian 11 dependency packages"
 echo ""
 
-sudo apt update
-sudo apt install -y sudo python3 python3-virtualenv python3-venv dmidecode
-
-${PY} -V
-
-# libglib2.0-dev needed for pyler package
-sudo apt install -y libglib2.0-dev python3-dbus python3-gi python3-gi-cairo
-
-# Needed for bluetooth sensors
-# sudo apt install -y rfkill bluez bluez-firmware bluez-hcidump bluez-tools
-sudo apt -y install bluetooth bluez libbluetooth-dev libudev-dev
-
 if [ ! -d "/home/${USER}" ];then
     echo "Adding user ${USER}"
+
     sudo adduser --system --home ${DIR} --no-create-home --disabled-login ${USER}
     sudo addgroup ${USER}
     sudo usermod -aG bluetooth ${USER}
     sudo usermod -aG sudo ${USER}
-    sudo mkdir /home/${USER}
+
+    sudo mkdir -p /home/${USER} /home/${USER}/.config
+    #if [ -d "${HOME}/.config/pulse" ]; then
+    #    sudo cp -rf ${HOME}/.config/pulse /home/${USER}/.config/
+    #fi 
+
     sudo chmod 775 /home/${USER}
+    sudo chown -R ${USER}:${USER} /home/${USER}
+    #sudo chmod 660 ~/.config/pulse/*
+    
 fi 
+
+if [ -f "/etc/pulse/client.conf" ]; then
+    sudo sed -i "s:; autospawn :autospawn :" /etc/pulse/client.conf
+    sudo mkdir -p /home/${USER}/.pulse
+    sudo chown -R ${USER}:${USER} /home/${USER}
+fi
+
+
+sudo apt update
+sudo apt install -y sudo python3 python3-virtualenv python3-venv dmidecode
+
+# libglib2.0-dev needed for pyler package
+sudo apt install -y libglib2.0-dev python3-dbus python3-gi python3-gi-cairo
+
+# Needed for audio sensors
+sudo apt install -y libasound2-dev
+python3 -m pip install pyalsaaudio
+
+# Needed for bluetooth sensors
+# sudo apt install -y rfkill bluez bluez-firmware bluez-hcidump bluez-tools
+sudo apt -y install bluetooth bluez libbluetooth-dev libudev-dev
 
 echo "##########################################"
 cd $(dirname "${DIR}")
@@ -48,7 +67,9 @@ fi
 
 echo "##########################################"
 echo "Creating virtualenv in ${DIR}"
+${PY} -V
 echo ""
+
 cd ${DIR}
 if [ ! -d "${DIR}/env" ];then
     rm -rf env
@@ -97,6 +118,9 @@ if [ ! -f "/etc/sudoers.d/homeagent" ];then
     sudo echo "homeagent ALL=(ALL) NOPASSWD: $(which dmidecode)" > /etc/sudoers.d/homeagent
 fi 
 echo ""
+
+
+sudo xhost +
 
 echo "##########################################"
 echo "To start run: 'systemctl start home-agent'"

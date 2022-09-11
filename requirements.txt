@@ -1,4 +1,3 @@
-#pyalsaaudio; sys_platform == 'linux'
 py-dmidecode; sys_platform == 'linux'
 distro; sys_platform == 'linux'
 sounddevice; sys_platform == 'linux'

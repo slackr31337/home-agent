@@ -319,10 +319,10 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
 
             except Exception as err:  # pylint: disable=broad-except
                 LOGGER.error("%s Failed to load module %s. %s", LOG_PREFIX, _name, err)
-                LOGGER.debug(traceback.format_exc())
-                continue
+                LOGGER.error(traceback.format_exc())
+                # continue
 
-            if not hasattr(_module, "AgentModule"):
+            if _module and not hasattr(_module, "AgentModule"):
                 LOGGER.error(
                     "%s Failed to load module %s. AgentModule class not found",
                     LOG_PREFIX,
@@ -337,7 +337,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
 
             except Exception as err:  # pylint: disable=broad-except
                 LOGGER.error("%s Failed to load module %s. %s", LOG_PREFIX, _name, err)
-                LOGGER.debug(traceback.format_exc())
+                LOGGER.error(traceback.format_exc())
                 continue
 
             if not _class.available():

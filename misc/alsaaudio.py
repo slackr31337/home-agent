@@ -3,6 +3,7 @@ Audio module for Linux
 pyalsaaudio
 apt-get install libasound2-dev
 """
+# pylint: skip-file
 # pyalsaaudio; sys_platform == 'linux'
 
 try:
@@ -17,7 +18,7 @@ from service.log import LOGGER
 
 MUTE_MAP = {"ON": 1, "OFF": 0}
 STATE_MAP = {1: "ON", 0: "OFF"}
-LOG_PREFIX = r"[Audio]"
+LOG_PREFIX = "[Audio]"
 ###########################################
 class AgentModule:
     """Class for audio device support"""
