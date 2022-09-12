@@ -24,7 +24,7 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Pylint
       run: |
-        pylint -rn -d W06012 *.py
+        pylint -rn *.py
     - name: UnitTest
       run: |
         python -m unittest discover
