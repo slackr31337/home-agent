@@ -48,6 +48,7 @@ class AgentModule:
 
     ###############################################################
     def available(self):
+        """Return bool for available"""
         return self._available
 
     ###############################################################
@@ -100,12 +101,19 @@ class AgentModule:
     ###############################################################
     async def _scan(self):
         """Async scan for bluetooth devices"""
-        async with self.scanner as scanner:
-            await asyncio.sleep(3)
+        devices = []
+        async with self.scanner as _scanner:
+            await asyncio.sleep(5)
+
+        for device in _scanner.discovered_devices:
+            items = vars(device)
+            devices.append(items)
+            LOGGER.debug("%s device: %s", LOG_PREFIX, items)
 
     ##############################################################
     def detection_callback(self, device, advertisement_data):
         """Store bluetooth advertisement data"""
+
         addr = str(device.address)
         distance = pow(10, ((-55 - (device.rssi)) / (10 * 2)))
         _data = {
