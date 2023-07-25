@@ -4,7 +4,16 @@ This is an endpoint agent for Windows and Linux for collecting metrics for Home-
 
 ## Description
 
-I wanted to have the ability to interact and connect with my computers to Home-Assistant (https://www.home-assistant.io/). Collect sesnor data and trigger notifications right on my desktop. 
+I wanted to have the ability to connect my servers and computers to [Home-Assistant](https://www.home-assistant.io/). Collect sesnor data, call services and trigger notifications right on my desktop. 
+
+Test endpoints:
+  - HP Laptop
+  - ASUS Server
+  - Raspberry Pi 3 (My Car)
+      - GeeekPi 4 Channel Relay Board HAT [link](https://wiki.52pi.com/index.php/EP-0099)
+      - Sixfab 4G LTE/GPS HAT [link](https://sixfab.com/hardware/)
+      - Pisugar 2 Pro UPS/RTC [link](https://github.com/PiSugar/PiSugar)
+      - USB to CAN module [amazon link](https://www.amazon.com/gp/product/B07P9JGXXB/)
 
 
 ## Connectors
@@ -61,7 +70,7 @@ git clone https://github.com/slackr31337/home-agent.git
 
 - Add system user
 ```
-sudo adduser --system --home ${DIR} --no-create-home --disabled-login homeagent
+sudo adduser --system --home /opt/home-agent --no-create-home --disabled-login homeagent
 sudo addgroup homeagent
 chown homeagent /opt/home-agent
 ```
@@ -105,13 +114,9 @@ deactivate
 
 
 ## Running home-agent
-```
-cd /opt/home-agent
-user@laptop:/opt/home-agent$ source env/bin/activate
-(env) user@laptop:/opt/home-agent$ 
 
-(env) user@laptop:/opt/home-agent$ python3 run.py -h
-[            run.py:               main()]  INFO Starting Home Agent endpoint
+```
+user@laptop:/opt/home-agent$ python3 run.py -h
 usage: run.py [-h] [-c CONFIG] [-s] [-d]
 
 Home Agent endpoint
@@ -122,6 +127,12 @@ optional arguments:
                         Set config.yaml file
   -s, --service         Run as service
   -d, --debug           Turn on DEBUG logging
+```
+
+```
+cd /opt/home-agent
+user@laptop:/opt/home-agent$ source env/bin/activate
+(env) user@laptop:/opt/home-agent$ 
 
 (env) user@laptop:/opt/home-agent$ python3 run.py -s -c secrets.yaml 
 [            run.py:               main()]  INFO Starting Home Agent endpoint
