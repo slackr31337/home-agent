@@ -10,17 +10,15 @@ import pathlib
 import glob
 import json
 import ipaddress
-
 from psutil import LINUX
 
 
+from config import CONN_DIR, HW_DIR, MOD_DIR, ONLINE_ATTRIB, OS_DIR, Config
+from device.setup import setup_device, setup_sensor
 from service.log import LOGGER
 from service.scheduler import Scheduler
 from service.states import ThreadSafeDict, load_states, save_states
-from service.util import calc_elasped, gps_moving, gps_update
-from device.setup import setup_device, setup_sensor
-
-from config import CONN_DIR, HW_DIR, MOD_DIR, ONLINE_ATTRIB, OS_DIR, Config
+from service.util import calc_elapsed, gps_moving, gps_update
 from service.const import (
     ATTRIBS,
     STATE,
@@ -54,9 +52,13 @@ from service.const import (
     CONNECTED,
     RESET,
     GPS,
+    STRING_SPACE,
 )
 
+
 LOG_PREFIX = r"[HomeAgent]"
+
+
 ##########################################
 class HomeAgent:  # pylint:disable=too-many-instance-attributes
     """Class to collect and report endpoint data"""
@@ -180,8 +182,8 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
 
         self.collector()
 
-        elasped = calc_elasped(start)
-        LOGGER.info("%s Startup finished in %s", LOG_PREFIX, elasped)
+        elapsed = calc_elapsed(start)
+        LOGGER.info("%s Startup finished in %s", LOG_PREFIX, elapsed)
 
     ##########################################
     def _os_module(self):
@@ -201,7 +203,9 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                 self._config.platform,
                 OS_DIR,
             )
-            raise Exception("OS module not found")
+            raise Exception(  # pylint: disable=broad-exception-raised
+                "OS module not found"
+            )
 
         _name = pathlib.Path(os_module).stem
         _module = importlib.import_module(_name)
@@ -259,6 +263,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     ##########################################
     def _load_hardware(self):
         """Load hardware modules"""
+
         if self._config.platform != LINUX:
             return
 
@@ -350,52 +355,56 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     ##########################################
     def _conn_reset(self):
         """Reset HA connection"""
+
         self._stats[LAST][RESET] = int(time.time())
         self._connected_event.clear()
         self._connector.stop()
         self._connector = None
         time.sleep(5)
+
         self._connector_module()
 
     ##########################################
     def conn_ping(self):
         """Ping Home Assistant connector"""
+
         last_reset = self._stats[LAST].get(RESET, 0)
         last_ping = self._stats[LAST].get(PING, 0)
         last_pong = self._stats[LAST].get(PONG, 0)
         delta = int(last_ping - last_pong)
-        elasped = calc_elasped(last_pong)
+        elapsed = calc_elapsed(last_pong)
 
         LOGGER.debug(
-            "%s [Ping] Last response delta: %s %s ago", LOG_PREFIX, delta, elasped
+            "%s [Ping] Last response delta: %s %s ago", LOG_PREFIX, delta, elapsed
         )
 
         if last_pong != 0 and delta > 300:
             LOGGER.warning(
                 "%s Last ping response was %s ago. Restarting home-agent",
                 LOG_PREFIX,
-                elasped,
+                elapsed,
             )
             self._conn_reset()
 
         self._stats[LAST][PING] = int(time.time())
         if self._ha_connected:
             self._stats[LAST][CONNECTED] = int(time.time())
-            self._connector.ping("homeassistant/status", self._config.hostname)
+            self._connector.ping(r"homeassistant/status", self._config.hostname)
 
         else:
-            reset_elasped = calc_elasped(last_reset)
+            reset_elapsed = calc_elapsed(last_reset)
             LOGGER.error(
                 "%s HA is disconnected. Last connected %s ago. Last reset was %s ago.",
                 LOG_PREFIX,
-                elasped,
-                reset_elasped,
+                elapsed,
+                reset_elapsed,
             )
             self._conn_reset()
 
     ##########################################
     def _add_sensor_prefixes(self):
-        """Add sensors that match prfixes"""
+        """Add sensors that match prefixes"""
+
         prefix_sensors = self._config.sensors.get("prefix", [])
         prefix_class = tuple(self._config.sensors.prefix_class.keys())
         prefix_icon = tuple(self._config.sensors.prefix_icons.keys())
@@ -556,6 +565,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     ##########################################
     def message_send(self, _data):
         """Send message to Home Assistant using connector"""
+
         if not self._ha_connected:
             return False
 
@@ -606,8 +616,12 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
 
             elif event_type in [WILL, OFFLINE]:
                 self._stats[LAST][event_type] = now
-                LOGGER.warning("%s Home Assistant connection offline", LOG_PREFIX)
-                self._ha_connected = False
+                LOGGER.warning(
+                    "%s Home Assistant connection received %s event",
+                    LOG_PREFIX,
+                    event_type,
+                )
+                # self._ha_connected = False
 
             elif event_type == GET:
                 self._stats[LAST][event_type] = now
@@ -690,6 +704,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     ##########################################
     def _setup_module_services(self):
         """Configure services from loaded module"""
+
         for _module, mod_class in self._modules.items():
             if not hasattr(mod_class, "services"):
                 continue
@@ -745,7 +760,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                     LOGGER.info("%s Setup callback %s.set()", LOG_PREFIX, sensor)
                     self._callback[sensor] = mod_class.set
 
-                _name = sensor.title().replace("_", " ")
+                _name = sensor.title().replace("_", STRING_SPACE)
                 LOGGER.debug("%s Setup module sensor: %s", LOG_PREFIX, _name)
                 data = setup_sensor(self._config, _name)
                 with self._sensors as _sensors:
@@ -769,7 +784,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             if _state is None:
                 continue
 
-            _name = sensor.title().replace("_", " ")
+            _name = sensor.title().replace("_", STRING_SPACE)
             _data = setup_sensor(self._config, _name)
             _topic = _data.get(TOPIC).split("/config", 2)[0]
 
@@ -853,7 +868,6 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                 _state = _state.strip()
 
             if force_update or (_last is not None and _state != _last):
-
                 if not force_update:
                     LOGGER.debug(
                         "%s %s changed from [%s] to [%s]. Publishing new state",
@@ -925,7 +939,6 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
 
         if states.get("has_gps") is not True:
             for _loc, _net in self._config.device_tracker.items():
-
                 network = ipaddress.ip_network(_net)
                 if network.version != 4:
                     value = states.get("ip6_address")

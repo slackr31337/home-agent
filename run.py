@@ -16,9 +16,12 @@ from service.const import DEBUG
 from config import APP_NAME, Config, load_config
 
 LOG_PREFIX = r"[HomeAgent]"
+
+
 #########################################
 def run_service(config: Config, _sensors=None):
     """Run Home Agent Service"""
+
     LOGGER.info("%s is starting", LOG_PREFIX)
 
     _state = ThreadSafeDict()
@@ -45,6 +48,7 @@ def run_service(config: Config, _sensors=None):
 #########################################
 def main():
     """Main run function"""
+
     LOGGER.info("Starting %s", APP_NAME)
     _args = parse_args(sys.argv[1:], APP_NAME)
 

@@ -18,6 +18,8 @@ from service.log import LOGGER
 MUTE_MAP = {"ON": 1, "OFF": 0}
 STATE_MAP = {1: "ON", 0: "OFF"}
 LOG_PREFIX = r"[Audio]"
+
+
 ###########################################
 class AgentModule:
     """Class for audio device support"""
@@ -75,7 +77,7 @@ class AgentModule:
             mixer = alsaaudio.Mixer(name)
             LOGGER.info("%s Mixer %s", LOG_PREFIX, name)
             volumes = mixer.getvolume()
-            for idx in range(len(volumes)):
+            for idx in enumerate(volumes):
                 LOGGER.info("%s Channel %s: volume: %s", LOG_PREFIX, idx, volumes[idx])
 
         self._channel = alsaaudio.mixers()[0]
@@ -94,6 +96,7 @@ class AgentModule:
     ##########################################
     def available(self):
         """Return bool for available status"""
+
         return self._available
 
     ##########################################
@@ -125,6 +128,7 @@ class AgentModule:
     ##########################################
     def set(self, item: str, value):
         """Set mixer value"""
+
         LOGGER.debug("%s set %s=%s", LOG_PREFIX, item, value)
         if item.endswith("volume"):
             self._mixer.setvolume(int(value))

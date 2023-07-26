@@ -9,6 +9,7 @@ import yaml
 from service.version import __version__
 
 CONFIG_FILE = "config.yaml"
+
 TMP_DIR = tempfile.gettempdir()
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 OS_DIR = os.path.join(BASE_DIR, "os")
@@ -158,6 +159,7 @@ TYPE_MAP = {
 }
 
 APP_NAME = "Home Agent endpoint"
+
 
 #########################################
 def load_config(args: dict) -> dict:

@@ -15,6 +15,19 @@ echo "Using base dir ${DIR}"
 
 echo "Intalling Debian 11 dependency packages"
 echo ""
+sudo apt update
+sudo apt install -y sudo python3 python3-virtualenv python3-venv dmidecode
+
+# libglib2.0-dev needed for pyler package
+sudo apt install -y libglib2.0-dev python3-dbus python3-gi python3-gi-cairo
+
+# Needed for audio sensors
+sudo apt install -y libasound2-dev
+python3 -m pip install pyalsaaudio
+
+# Needed for bluetooth sensors
+# sudo apt install -y rfkill bluez bluez-firmware bluez-hcidump bluez-tools
+sudo apt -y install bluetooth bluez libbluetooth-dev libudev-dev
 
 if [ ! -d "/home/${USER}" ];then
     echo "Adding user ${USER}"
@@ -40,21 +53,6 @@ if [ -f "/etc/pulse/client.conf" ]; then
     sudo mkdir -p /home/${USER}/.pulse
     sudo chown -R ${USER}:${USER} /home/${USER}
 fi
-
-
-sudo apt update
-sudo apt install -y sudo python3 python3-virtualenv python3-venv dmidecode
-
-# libglib2.0-dev needed for pyler package
-sudo apt install -y libglib2.0-dev python3-dbus python3-gi python3-gi-cairo
-
-# Needed for audio sensors
-sudo apt install -y libasound2-dev
-python3 -m pip install pyalsaaudio
-
-# Needed for bluetooth sensors
-# sudo apt install -y rfkill bluez bluez-firmware bluez-hcidump bluez-tools
-sudo apt -y install bluetooth bluez libbluetooth-dev libudev-dev
 
 echo "##########################################"
 cd $(dirname "${DIR}")
@@ -119,8 +117,10 @@ if [ ! -f "/etc/sudoers.d/homeagent" ];then
 fi 
 echo ""
 
-
 sudo xhost +
+
+cp ${DIR}/scripts/if-up.sh /etc/network/if-up.d/home-agent
+sudo chmod 755 /etc/network/if-up.d/home-agent
 
 echo "##########################################"
 echo "To start run: 'systemctl start home-agent'"

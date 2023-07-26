@@ -1,5 +1,5 @@
-# pylint: disable=consider-using-with
 """Thread safe dict used to hold state info"""
+# pylint: disable=consider-using-with
 
 import os
 import threading
@@ -10,6 +10,8 @@ from service.log import LOGGER
 from service.const import STATE, ATTRIBS, DEVICE
 
 LOG_PREFIX = r"[State]"
+
+
 ##########################################
 class ThreadSafeDict(dict):
     """Thread safe dict for sharing data between threads"""

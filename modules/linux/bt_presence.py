@@ -6,8 +6,10 @@ from bleson import get_provider, Observer, Advertisement
 
 from service.log import LOGGER
 
-SLUG = "bluetooth"
+SLUG = r"bluetooth"
 LOG_PREFIX = f"[{SLUG}]"
+
+
 ##########################################
 class AgentModule:
     """Bluetooth scanner"""
@@ -77,11 +79,13 @@ class AgentModule:
     ##########################################
     def available(self) -> bool:
         """Return bool for available"""
+
         return self._available
 
     ##########################################
     def get(self, _method: str):
         """Return state for given method"""
+
         LOGGER.debug("%s get: %s", LOG_PREFIX, _method)
         if hasattr(self, _method):
             _func = getattr(self, _method)
@@ -99,6 +103,7 @@ class AgentModule:
     ##########################################
     def set(self, _item: str, _value):
         """Set value for given item. HA switches, etc"""
+
         LOGGER.debug("%s set: %s value: %s", LOG_PREFIX, _item, _value)
         if _item in self._set:
             self._set[_item] = bool(_value == "ON")
@@ -107,6 +112,7 @@ class AgentModule:
     ##########################################
     def disable_scan(self, _value: str = None) -> bool:
         """Home Assistant switch"""
+
         if _value is not None:
             self._disable_scan = bool(_value == "ON")
 
@@ -115,6 +121,7 @@ class AgentModule:
     ##########################################
     def bluetooth(self):
         """Scan for bluetooth devices"""
+
         if self._disable_scan:
             return None, None
 

@@ -9,8 +9,10 @@ from mss import mss
 from service.log import LOGGER
 from config import HOSTNAME
 
-LOG_PREFIX = "[display]"
+LOG_PREFIX = r"[display]"
 STATE_MAP = {True: "ON", False: "OFF"}
+
+
 ###########################################
 class XScreenSaverInfo(ctypes.Structure):
     """Class used to get X screen status"""
@@ -131,36 +133,42 @@ class AgentModule:
         self._available = True
 
     ##########################################
-    def available(self):
+    def available(self) -> bool:
         """Return bool for available status"""
+
         return self._available
 
     ##########################################
-    def get(self, _method):
+    def get(self, method: str):
         """Return state for given method"""
-        LOGGER.debug("%s get: %s", LOG_PREFIX, _method)
-        if hasattr(self, _method):
-            _func = getattr(self, _method)
+
+        LOGGER.debug("%s get: %s", LOG_PREFIX, method)
+        if hasattr(self, method):
+            _func = getattr(self, method)
             LOGGER.debug("%s module function: %s()", LOG_PREFIX, _func.__name__)
             return _func()
 
-        _value = self._state.get(_method)
+        _value = self._state.get(method)
         if _value in STATE_MAP:
             _value = STATE_MAP.get(_value)
-        LOGGER.debug("%s module sensor %s %s", LOG_PREFIX, _method, _value)
+
+        LOGGER.debug("%s module sensor %s %s", LOG_PREFIX, method, _value)
         return _value, None
 
     ##########################################
-    def set(self, _item, _value):
+    def set(self, item: str, value: str):
         """Set value for given item. HA switches, etc"""
-        LOGGER.debug("%s set: %s value: %s", LOG_PREFIX, _item, _value)
-        if _item in self._state:
-            self._state[_item] = bool(_value == "ON")
-        return _value
+
+        LOGGER.debug("%s set: %s value: %s", LOG_PREFIX, item, value)
+        if item in self._state:
+            self._state[item] = bool(value == "ON")
+
+        return value
 
     ##########################################
     def display_idle(self):
         """Home Assistant sensor display_idle"""
+
         if (
             self._libxss.XScreenSaverQueryInfo(
                 self._dpy_p, self._rootwindow, self._xss_info_p
@@ -184,6 +192,7 @@ class AgentModule:
     ##########################################
     def screen_capture(self):
         """Home Assistant camera with screenshot"""
+
         if self._state["display_idle"] or self._state["disable_capture"]:
             LOGGER.debug("%s capture_disabled", LOG_PREFIX)
             return None, None
@@ -197,12 +206,12 @@ class AgentModule:
                 output=self._temp_file,
             )
 
-        imagestring = None
+        image_string = None
         try:
             with open(filename, "rb") as _image:
-                imagestring = _image.read()
+                image_string = _image.read()
 
         except PermissionError:
             LOGGER.error("%s failed to save screen capture. Permission denied")
 
-        return bytearray(imagestring), None
+        return bytearray(image_string), None
