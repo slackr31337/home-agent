@@ -14,6 +14,8 @@ from config import Config
 
 LOG_PREFIX = "[GPS]"
 STATE_MAP = {}
+
+
 ##########################################
 class AgentModule:
     """Agent class for GPS"""
@@ -28,13 +30,16 @@ class AgentModule:
 
     ##########################################
     def __init__(self, config: Config):
-        self._config = config
-        LOGGER.info("%s init using: %s", LOG_PREFIX, config.gps.dev)
+        self._config = config.get("gps")
+        self._dev = self._config.get("dev")
+
+        LOGGER.info("%s init using: %s", LOG_PREFIX, self._dev)
         self._ready = threading.Event()
         self._ready.clear()
-        self._location = Location(self._ready, config.gps.dev)
+        self._location = Location(self._ready, self._dev)
         if not self._location.ready():
             return
+
         self._available = True
         self._worker = threading.Thread(
             target=self._location.start, daemon=True, name="GPS Worker", args=()
@@ -44,6 +49,7 @@ class AgentModule:
     ##########################################
     def stop(self):
         """Stop GPS worker thread"""
+
         self._ready.clear()
         self._location.stop()
         if self._worker:
@@ -52,6 +58,7 @@ class AgentModule:
     ##########################################
     def available(self):
         """Return bool for module available"""
+
         return self._available
 
     ##########################################
@@ -72,6 +79,7 @@ class AgentModule:
     ##########################################
     def location(self):
         """Get location and fix"""
+
         location = self._location.state()
         return location.get("fix"), location
 
@@ -103,16 +111,19 @@ class Location:
     ##########################################
     def ready(self):
         """Return bool"""
+
         return self._ready.is_set()
 
     ##########################################
     def stop(self):
         """Stop data loop"""
+
         self._running = False
 
     ##########################################
     def _serial_open(self):
         """Open serial device for reading"""
+
         LOGGER.debug("%s Open serial port: %s", LOG_PREFIX, self._tty)
 
         self._ready.clear()
@@ -141,6 +152,7 @@ class Location:
     ##########################################
     def _read_data(self):
         """Loop to read GPS data from TTY"""
+
         LOGGER.debug("%s read GPS data", LOG_PREFIX)
 
         while self._running:
@@ -155,7 +167,7 @@ class Location:
                 continue
 
             try:
-                for (_, msg) in self._nmea:
+                for _, msg in self._nmea:
                     if msg.msgID == "GGA":
                         self._process_gga(msg)
                         self._count += 1
@@ -212,6 +224,7 @@ class Location:
     ##########################################
     def _process_vtg(self, msg):
         """Process NMEA GPVTG message"""
+
         speed = str(msg.sogk)
         if len(speed) == 0:
             return
@@ -224,6 +237,7 @@ class Location:
     ##########################################
     def _save_state(self, **kwargs):
         """Save GPS data to dict"""
+
         with self._state as _state:
             for key, value in kwargs.items():
                 if value is not None:
@@ -232,6 +246,7 @@ class Location:
     ##########################################
     def state(self):
         """Return dict with location data"""
+
         with self._state as _state:
             data = _state.copy()
 
