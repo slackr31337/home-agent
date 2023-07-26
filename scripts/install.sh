@@ -54,13 +54,15 @@ if [ -f "/etc/pulse/client.conf" ]; then
 fi
 
 echo "##########################################"
-cd $(dirname "${DIR}")
 echo ""
 
 if [ ! -d "${DIR}" ];then
+    cd /opt
     echo "Cloning home-agent into $(pwd)"
     #git clone https://github.com/slackr31337/home-agent.git
 fi
+
+cd $(dirname "${DIR}")
 
 echo "##########################################"
 echo "Creating virtualenv in ${DIR}"
