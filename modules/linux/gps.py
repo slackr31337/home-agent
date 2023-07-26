@@ -12,7 +12,7 @@ from service.log import LOGGER
 from service.states import ThreadSafeDict
 from config import Config
 
-LOG_PREFIX = "[GPS]"
+LOG_PREFIX = r"[GPS]"
 STATE_MAP = {}
 
 
