@@ -30,12 +30,15 @@ class AgentModule:
 
     ##########################################
     def __init__(self, config: Config):
-        self._config = config.get("gps")
-        self._dev = self._config.get("dev")
-
-        LOGGER.info("%s init using: %s", LOG_PREFIX, self._dev)
         self._ready = threading.Event()
         self._ready.clear()
+        self._config = config.get("gps")
+        if not self._config:
+            return
+
+        self._dev = self._config.get("dev")
+        LOGGER.info("%s init using: %s", LOG_PREFIX, self._dev)
+
         self._location = Location(self._ready, self._dev)
         if not self._location.ready():
             return
