@@ -2,9 +2,11 @@
 
 import argparse
 
+
 ########################################################
-def parse_args(argv:list, app_name:str)->dict:
+def parse_args(argv: list, app_name: str) -> dict:
     """Parse command line arguments"""
+
     parser = argparse.ArgumentParser(description=app_name)
 
     parser.add_argument(

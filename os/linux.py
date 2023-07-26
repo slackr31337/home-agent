@@ -16,6 +16,8 @@ from device.raspberrypi import RaspberryPi
 
 SKIP_MOUNTS = ["live", "docker", "subvol", "tmp"]
 LOG_PREFIX = r"[Linux]"
+
+
 ##########################################
 class AgentPlatform:
     """OS Module for Linux"""
@@ -38,17 +40,21 @@ class AgentPlatform:
     ##########################################
     def state(self):
         """Return sysinfo dict"""
+
         return self._sensors, self._attribs
 
     ##########################################
     def update(self):
         """Poll system sensors"""
+
         self._update_system_info()
 
     ##########################################
     def _get_system_info(self) -> dict:
         """Build system information and return dict"""
+
         arch = self._cpuinfo.get("arch")
+        LOGGER.info("[%s] arch: %s", self.platform, arch)
         if "ARM" in arch:
             self._hardware = RaspberryPi()
             self.hardware = "raspberrypi"
@@ -58,6 +64,7 @@ class AgentPlatform:
         info = distro.info()
         _name = info.get("id", "Unknown").title()
         _version = info.get("version_parts", info.get("version", ""))
+
         if "major" in _version:
             if len(_version["minor"]) > 0:
                 _version = f"{_version['major']}.{_version['minor']}"

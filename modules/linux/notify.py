@@ -2,6 +2,7 @@
 
 import plyer
 
+
 ###########################################
 class AgentModule:
     """Linux desktop notification support"""
@@ -20,11 +21,13 @@ class AgentModule:
     ##########################################
     def available(self):
         """Return bool for available status"""
+
         return self._available
 
     ##########################################
     def notify(self, data):
         """Display notification on desktop"""
+
         title = data.get("title", "HomeAgent Notification")
         message = data.get("message", "")
         timeout = int(data.get("timeout", 1200))

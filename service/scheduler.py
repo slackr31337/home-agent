@@ -11,16 +11,33 @@ from typing import Any
 
 from service.log import LOGGER
 from service.states import ThreadSafeDict
-from service.util import calc_elasped
-from service.const import SCHEDULER, RUNNING, TASKS, NEXT, LAST, FUNCTION, SLEEP, ARGS, LOG
+from service.util import calc_elapsed
+from service.const import (
+    SCHEDULER,
+    RUNNING,
+    TASKS,
+    NEXT,
+    LAST,
+    FUNCTION,
+    SLEEP,
+    ARGS,
+    LOG,
+)
 
 LOG_PREFIX = r"[Scheduler]"
+
+
 ##########################################
 class Scheduler:  # pylint: disable=too-many-instance-attributes
     """Event Scheduler Class"""
 
     ##########################################
-    def __init__(self, state:ThreadSafeDict, running_event:threading.Event, run_maintance:bool=True):
+    def __init__(
+        self,
+        state: ThreadSafeDict,
+        running_event: threading.Event,
+        run_maintenance: bool = True,
+    ):
         LOGGER.debug("%s init", LOG_PREFIX)
         signal.signal(signal.SIGINT, self.stop)
         signal.signal(signal.SIGTERM, self.stop)
@@ -38,24 +55,27 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
 
         self.log_output = None
         self._output_handler = None
-        if run_maintance:
+        if run_maintenance:
             self.queue(self._sched_maint, 600, True)
 
     ##########################################
-    def update_state(self, key:str, value:Any=None):
+    def update_state(self, key: str, value: Any = None):
         """Update scheduler state dict"""
+
         with self._state as _state:
             _state[SCHEDULER][key] = value
 
     ##########################################
-    def update_task_state(self, task_id, key:str, value:Any=None):
+    def update_task_state(self, task_id, key: str, value: Any = None):
         """Update task state dict with key, value"""
+
         with self._state as _state:
             _state[SCHEDULER][TASKS][task_id][key] = value
 
     ##########################################
-    def _get_tasks(self)->list:
+    def _get_tasks(self) -> list:
         """Return list of task ids"""
+
         task_ids = []
         with self._state as _state:
             task_ids = list(_state[SCHEDULER][TASKS].keys())
@@ -63,13 +83,22 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
         return task_ids
 
     ##########################################
-    def set_task_state(self, task_id:str, func, args:list, log:bool, next:int=0, sleep:int=0):
+    def set_task_state(
+        self,
+        task_id: str,
+        func,
+        args: list,
+        log: bool,
+        next_run: int = 0,
+        sleep: int = 0,
+    ):
         """Set initial task state dict with details"""
+
         with self._state as _state:
             _state[SCHEDULER][TASKS][task_id] = {
                 FUNCTION: func.__name__,
                 LAST: 0,
-                NEXT: next,
+                NEXT: next_run,
                 SLEEP: sleep,
                 ARGS: args,
                 LOG: log,
@@ -77,8 +106,9 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
             }
 
     ##########################################
-    def state_running(self, state:bool=True):
+    def state_running(self, state: bool = True):
         """Set running state"""
+
         self._running = state
         self.update_state(RUNNING, state)
         if state:
@@ -87,14 +117,16 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
     ##########################################
     def _sched_maint(self):
         """Remove old states from dict"""
+
         with self._state as _state:
             for _task, _data in tuple(_state[SCHEDULER][TASKS].items()):
                 if _data[NEXT] == 0 and _data[RUNNING] is False:
                     _state[SCHEDULER][TASKS].pop(_task, None)
 
     ##########################################
-    def _get_task_id(self, name:str)->str:
+    def _get_task_id(self, name: str) -> str:
         """Return unique task id"""
+
         task_ids = self._get_tasks()
         _id = None
         while _id is None and _id not in task_ids:
@@ -102,25 +134,33 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
         return _id
 
     ##########################################
-    def run(self, func, args:list=None, log:bool=False)->str:
+    def run(self, func, args: list = None, log: bool = False) -> str:
         """
         Adds the func to the ready queue immediately
         """
+
         _id = self._get_task_id(func.__name__)
         self.queue(func, 1, False, args)
         self.set_task_state(_id, func, args, log)
         if self._running:
             self._task_event.set()
+
         return _id
 
     ##########################################
-    def queue(
-        self, func, sleep:int=10, forever:bool=False, args:list=None, log:bool=False
-    )->str:  # pylint: disable=too-many-arguments
+    def queue(  # pylint: disable=too-many-arguments
+        self,
+        func,
+        sleep: int = 10,
+        forever: bool = False,
+        args: list = None,
+        log: bool = False,
+    ) -> str:
         """
         Adds the func to the sleeping queue
-        after calcualting deadline
+        after calculating deadline
         """
+
         _id = self._get_task_id(func.__name__)
         LOGGER.debug("%s Scheduling task %s in %s second(s)", LOG_PREFIX, _id, sleep)
         if not isinstance(sleep, int):
@@ -134,12 +174,12 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
         return _id
 
     ##########################################
-    def stop(self, signum:int=0, frame=None):  # pylint: disable=unused-argument
+    def stop(self, sig_num: int = 0, frame=None):  # pylint: disable=unused-argument
         """
         Stop running Event loop
         """
-        if signum > 0:
-            LOGGER.info("%s Received signal %s", LOG_PREFIX, signum)
+        if sig_num > 0:
+            LOGGER.info("%s Received signal %s", LOG_PREFIX, sig_num)
 
         LOGGER.info("%s Stopping", LOG_PREFIX)
         self._running_event.clear()
@@ -231,7 +271,7 @@ class Scheduler:  # pylint: disable=too-many-instance-attributes
                     LOGGER.error(err)
                     LOGGER.error(traceback.format_exc())
 
-                runtime = calc_elasped(start, True)
+                runtime = calc_elapsed(start, True)
                 self.update_task_state(_id, RUNNING, False)
                 self.update_task_state(_id, "runtime", runtime)
 

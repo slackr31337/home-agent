@@ -17,13 +17,17 @@ from service.const import (
 )
 
 LOG_PREFIX = r"[Device]"
+
+
 ##########################################
-def setup_device(config:dict, states:dict):
+def setup_device(config: dict, states: dict):
     """Return dict with device data"""
 
     if config.device.identifiers is None:
-        LOGGER.error("%s setup_device() Missing device identifier")
-        raise Exception("Missing device identifier")
+        LOGGER.error("%s setup_device() Missing device identifier", LOG_PREFIX)
+        raise Exception(  # pylint: disable=broad-exception-raised
+            "Missing device identifier"
+        )
 
     return {
         DEVICE: {
@@ -38,8 +42,11 @@ def setup_device(config:dict, states:dict):
 
 
 ########################################################
-def setup_sensor(_config:dict, sensor:str="Status", sensor_type:str=None, attribs:dict=None)->dict:
+def setup_sensor(
+    _config: dict, sensor: str = "Status", sensor_type: str = None, attribs: dict = None
+) -> dict:
     """Return dict with sensor config"""
+
     device_name = _config.hostname.lower().replace(" ", "_")
     sensor_name = sensor.lower().replace(" ", "_")
     unique_id = f"{device_name}_{sensor_name}"

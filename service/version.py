@@ -4,8 +4,8 @@ import os
 
 
 path = os.path.dirname(os.path.dirname(__file__))
-VERSIONFILE = f"{path}/VERSION"
-with open(VERSIONFILE, "rt", encoding="utf-8") as file1:
+VERSION_FILE = f"{path}/VERSION"
+with open(VERSION_FILE, "rt", encoding="utf-8") as file1:
     VERSION = file1.read()
 
 _ver = VERSION.split(".")
@@ -17,7 +17,7 @@ if _ver is not None and len(_ver) > 2:
     __version__ = f"{VER_MAJOR}.{VER_MINOR}.{VER_PATCH}"
 
 else:
-    raise RuntimeError(f"Unable to find version string in {VERSIONFILE}.")
+    raise RuntimeError(f"Unable to find version string in {VERSION_FILE}.")
 
 
 if __name__ == "__main__":

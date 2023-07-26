@@ -14,24 +14,24 @@ def get_boot() -> str:
 
 
 #########################################
-def calc_elasped(start: float, postfix: bool = True) -> str:
-    """Calculate time elasped"""
+def calc_elapsed(start: float, postfix: bool = True) -> str:
+    """Calculate time elapsed"""
 
     end = time.time()
-    elasped = end - start
+    elapsed = end - start
     if not postfix:
-        return elasped
+        return elapsed
 
-    if elasped < 1:
-        elasped = int(elasped * 1000)
+    if elapsed < 1:
+        elapsed = int(elapsed * 1000)
         postfix = "ms"
 
-    elif elasped > 1:
+    elif elapsed > 1:
         postfix = "seconds"
     else:
         postfix = "second"
 
-    return f"{int(elasped)} {postfix}"
+    return f"{int(elapsed)} {postfix}"
 
 
 ##########################################
