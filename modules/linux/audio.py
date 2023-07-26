@@ -10,7 +10,8 @@ try:
 
 except ImportError:
     raise ImportError(  # pylint: disable=raise-missing-from
-        "Unable to import alsaaudio. Please run sudo apt install -y libasound2-dev && python3 -m pip install pyalsaaudio"
+        "Unable to import alsaaudio. Please run sudo apt install "
+        "-y libasound2-dev && python3 -m pip install pyalsaaudio"
     )
 
 from service.log import LOGGER
@@ -68,7 +69,7 @@ class AgentModule:
             LOG_PREFIX,
         )
         for idx in alsaaudio.card_indexes():
-            (name, longname) = alsaaudio.card_name(  # pylint: disable=unused-variable
+            (name, long_name) = alsaaudio.card_name(  # pylint: disable=unused-variable
                 idx
             )
             LOGGER.info("%s Card[%s] %s", LOG_PREFIX, idx, name)
@@ -77,8 +78,8 @@ class AgentModule:
             mixer = alsaaudio.Mixer(name)
             LOGGER.info("%s Mixer %s", LOG_PREFIX, name)
             volumes = mixer.getvolume()
-            for idx in enumerate(volumes):
-                LOGGER.info("%s Channel %s: volume: %s", LOG_PREFIX, idx, volumes[idx])
+            for idx, volume in enumerate(volumes):
+                LOGGER.info("%s Channel %s: volume: %s", LOG_PREFIX, idx, volume)
 
         self._channel = alsaaudio.mixers()[0]
         try:

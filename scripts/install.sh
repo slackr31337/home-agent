@@ -23,7 +23,6 @@ sudo apt install -y libglib2.0-dev python3-dbus python3-gi python3-gi-cairo
 
 # Needed for audio sensors
 sudo apt install -y libasound2-dev
-python3 -m pip install pyalsaaudio
 
 # Needed for bluetooth sensors
 # sudo apt install -y rfkill bluez bluez-firmware bluez-hcidump bluez-tools
@@ -55,13 +54,15 @@ if [ -f "/etc/pulse/client.conf" ]; then
 fi
 
 echo "##########################################"
-cd $(dirname "${DIR}")
 echo ""
 
 if [ ! -d "${DIR}" ];then
+    cd /opt
     echo "Cloning home-agent into $(pwd)"
     #git clone https://github.com/slackr31337/home-agent.git
 fi
+
+cd $(dirname "${DIR}")
 
 echo "##########################################"
 echo "Creating virtualenv in ${DIR}"
@@ -75,7 +76,9 @@ fi
 
 ${PY} -m venv env
 source env/bin/activate
-${PY} -m pip install -r requirements.txt
+python3 -m pip install --upgrade pip
+python3 -m pip install -r requirements.txt
+python3 -m pip install pyalsaaudio
 deactivate
 
 echo "##########################################"
@@ -83,14 +86,13 @@ echo "Running patch_dmidecode.sh"
 echo ""
 ${DIR}/scripts/patch_dmidecode.sh
 
-
-
 echo "##########################################"
 echo "Updating .env"
 if [ -f ".env.sh" ];then
     rm .env.sh
     echo ""
 fi 
+
 cp ./scripts/envvars.sh .env
 sed -i "s:^HOMEAGENT=.*$:HOMEAGENT=${DIR}:" .env
 
@@ -106,6 +108,10 @@ if [ ! -f "/lib/systemd/system/home-agent.service" ];then
     echo "Added systemd service 'home-agent'"
 fi
 echo ""
+
+sudo usermod -aG i2c homeagent
+sudo usermod -aG spi homeagent
+sudo usermod -aG gpio homeagent
 
 #sudo chown -R ${USER} ${DIR}
 sudo chown -R :${USER} ${DIR}
