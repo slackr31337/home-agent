@@ -10,11 +10,29 @@ from cpuinfo import get_cpu_info
 from dmidecode import DMIDecode
 
 
+from device.raspberrypi import RaspberryPi
 from service.log import LOGGER
 from service.util import get_boot
-from device.raspberrypi import RaspberryPi
+from service.const import (
+    LINUX,
+    ID,
+    PC,
+    LIVE,
+    DOCKER,
+    TMP,
+    VERSION,
+    MAJOR,
+    MINOR,
+    USERS,
+    HOSTNAME,
+    STRING_SPACE,
+    EMPTY_STRING,
+    STRING_UNDERSCORE,
+    FSLASH,
+)
 
-SKIP_MOUNTS = ["live", "docker", "subvol", "tmp"]
+
+SKIP_MOUNTS = [LIVE, DOCKER, "subvol", TMP]
 LOG_PREFIX = r"[Linux]"
 
 
@@ -22,9 +40,9 @@ LOG_PREFIX = r"[Linux]"
 class AgentPlatform:
     """OS Module for Linux"""
 
-    platform = "linux"
+    platform = LINUX
     os = "Linux"
-    hardware = "pc"
+    hardware = PC
 
     ##########################################
     def __init__(self):
@@ -53,30 +71,30 @@ class AgentPlatform:
     def _get_system_info(self) -> dict:
         """Build system information and return dict"""
 
-        arch = self._cpuinfo.get("arch")
+        arch = str(self._cpuinfo.get("arch", EMPTY_STRING)).lower()
         LOGGER.info("[%s] arch: %s", self.platform, arch)
-        if "ARM" in arch:
+        if "arm" in arch:
             self._hardware = RaspberryPi()
             self.hardware = "raspberrypi"
         else:
             self._hardware = DMIDecode()
 
         info = distro.info()
-        _name = info.get("id", "Unknown").title()
-        _version = info.get("version_parts", info.get("version", ""))
+        _name = info.get(ID, "Unknown").title()
+        _version = info.get("version_parts", info.get(VERSION, EMPTY_STRING))
 
-        if "major" in _version:
-            if len(_version["minor"]) > 0:
-                _version = f"{_version['major']}.{_version['minor']}"
+        if MAJOR in _version:
+            if len(_version[MINOR]) > 0:
+                _version = f"{_version.get(MAJOR)}.{_version.get(MINOR)}"
             else:
-                _version = _version["major"]
+                _version = _version.get(MAJOR)
 
         _release = f"{_name} {_version} ({info.get('codename')})"
 
         LOGGER.info("[%s] OS: %s", self.platform, _release)
 
         self._sysinfo = {
-            "hostname": self._uname.node,
+            HOSTNAME: self._uname.node,
             "manufacturer": self._hardware.manufacturer(),
             "model": self._hardware.model(),
             "serial": self._hardware.serial_number(),
@@ -107,11 +125,11 @@ class AgentPlatform:
                 host = "localhost"
             attribs[user.terminal] = f"{user.name}@{host}"
 
-        self._attribs["users"] = attribs
+        self._attribs[USERS] = attribs
 
         memory_usage = psutil.virtual_memory()
         _data = {
-            "users": users,
+            USERS: users,
             "ip_address": None,
             "ip4_addresses": [],
             "ip6_address": None,
@@ -144,7 +162,7 @@ class AgentPlatform:
             stats = nic_stats[iface]
             nic_io = io_counters[iface]
             if "." in iface:
-                iface = iface.replace(".", "_")
+                iface = iface.replace(".", STRING_UNDERSCORE)
 
             key = f"network_{iface}"
             _data[key] = "Up" if stats.isup else "Down"
@@ -180,9 +198,9 @@ class AgentPlatform:
                     _data["mac_addresses"].append(_addr)
                     self._attribs[key]["mac"] = _addr
 
-        _data["ip_address"] = next(iter(_data["ip4_addresses"]), "")
-        _data["ip6_address"] = next(iter(_data["ip6_addresses"]), "")
-        _data["mac_address"] = next(iter(_data["mac_addresses"]), "")
+        _data["ip_address"] = next(iter(_data["ip4_addresses"]), EMPTY_STRING)
+        _data["ip6_address"] = next(iter(_data["ip6_addresses"]), EMPTY_STRING)
+        _data["mac_address"] = next(iter(_data["mac_addresses"]), EMPTY_STRING)
 
         load1, load5, load15 = os.getloadavg()
         _data["load"] = load1
@@ -191,7 +209,7 @@ class AgentPlatform:
         for disk in psutil.disk_partitions():
             if any(item in str(disk.mountpoint) for item in SKIP_MOUNTS):
                 continue
-            dev = str(disk.device).split("/", maxsplit=10)[-1]
+            dev = str(disk.device).split(FSLASH, maxsplit=10)[-1]
             key = f"disk_{dev}"
             disk_usage = psutil.disk_usage(disk.mountpoint)
             _data[key] = int(disk_usage.percent)
@@ -203,10 +221,10 @@ class AgentPlatform:
                 "used": bytes2human(disk_usage.used),
             }
 
-        disk_usage = psutil.disk_usage("/")
+        disk_usage = psutil.disk_usage(FSLASH)
         _data["disk_root"] = int(disk_usage.percent)
         self._attribs["disk_root"] = {
-            "mount": "/",
+            "mount": FSLASH,
             "total": bytes2human(disk_usage.total),
             "used": bytes2human(disk_usage.used),
         }
@@ -218,7 +236,9 @@ class AgentPlatform:
                 if len(sensor.label) == 0:
                     _label = f"temp_{count}"
                 else:
-                    _label = sensor.label.lower().replace(" ", "_")
+                    _label = sensor.label.lower().replace(
+                        STRING_SPACE, STRING_UNDERSCORE
+                    )
 
                 _data[f"{_type}_{_label}"] = int(sensor.current)
                 count += 1
@@ -227,7 +247,7 @@ class AgentPlatform:
         for _type, _fans in fans.items():
             count = 0
             for fan in _fans:
-                _label = fan.label.lower().replace(" ", "_")
+                _label = fan.label.lower().replace(STRING_SPACE, STRING_UNDERSCORE)
                 if len(_label) == 0:
                     _label = f"fan_{count}"
 

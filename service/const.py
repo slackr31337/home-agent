@@ -2,7 +2,21 @@
 
 EMPTY_STRING = ""
 STRING_SPACE = " "
+STRING_UNDERSCORE = r"_"
+FSLASH = r"/"
 
+
+LINUX = "linux"
+PC = "pc"
+LIVE = "live"
+DOCKER = "docker"
+TMP = "tmp"
+
+ID = "id"
+VERSION = "version"
+MAJOR = "major"
+MINOR = "minor"
+USERS = "users"
 DEBUG = "debug"
 UPTIME = "uptime"
 RUNTIME = "runtime"
