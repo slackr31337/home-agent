@@ -11,6 +11,7 @@
         "distro",
         "dropin",
         "errin",
+        "FSLASH",
         "fstype",
         "getloadavg",
         "getmute",

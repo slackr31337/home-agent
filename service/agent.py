@@ -52,7 +52,10 @@ from service.const import (
     CONNECTED,
     RESET,
     GPS,
+    EMPTY_STRING,
     STRING_SPACE,
+    STRING_UNDERSCORE,
+    FSLASH,
 )
 
 
@@ -590,7 +593,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
     def process_cmd(self, _data: dict):
         """Process message from Home Assistant"""
 
-        topic = _data.get(TOPIC, "").split("/")
+        topic = _data.get(TOPIC, EMPTY_STRING).split(FSLASH)
         command = topic[-1]
         payload = _data.get(PAYLOAD)
         LOGGER.debug(
@@ -634,7 +637,11 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                 )
 
         elif command == SET:
-            sensor = _data.get(TOPIC, "").split("/")[-2].split("_", 1)[1]
+            sensor = (
+                _data.get(TOPIC, EMPTY_STRING)
+                .split(FSLASH)[-2]
+                .split(STRING_UNDERSCORE, 1)[1]
+            )
             LOGGER.info("%s cmd set: %s state: %s", LOG_PREFIX, sensor, payload)
             if sensor in self._callback:
                 _func = self._callback.get(sensor)
@@ -760,7 +767,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
                     LOGGER.info("%s Setup callback %s.set()", LOG_PREFIX, sensor)
                     self._callback[sensor] = mod_class.set
 
-                _name = sensor.title().replace("_", STRING_SPACE)
+                _name = sensor.title().replace(STRING_UNDERSCORE, STRING_SPACE)
                 LOGGER.debug("%s Setup module sensor: %s", LOG_PREFIX, _name)
                 data = setup_sensor(self._config, _name)
                 with self._sensors as _sensors:
@@ -784,7 +791,7 @@ class HomeAgent:  # pylint:disable=too-many-instance-attributes
             if _state is None:
                 continue
 
-            _name = sensor.title().replace("_", STRING_SPACE)
+            _name = sensor.title().replace(STRING_UNDERSCORE, STRING_SPACE)
             _data = setup_sensor(self._config, _name)
             _topic = _data.get(TOPIC).split("/config", 2)[0]
 
