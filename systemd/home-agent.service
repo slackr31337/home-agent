@@ -11,8 +11,8 @@ TimeoutStartSec=10
 RestartSec=10
 ProtectHome=false
 WorkingDirectory=/opt/home-agent
-EnvironmentFile=/opt/home-agent/.env
-Environment="PATH=/opt/home-agent/env/bin:$PATH"
+EnvironmentFile=/opt/home-agent/.env.ini
+Environment="PATH=/opt/home-agent/.env/bin:$PATH"
 ExecStart=python3 /opt/home-agent/run.py -s -c /opt/home-agent/config.yaml
 
 

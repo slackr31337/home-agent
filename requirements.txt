@@ -13,7 +13,7 @@ gs_usb; sys_platform == 'linux'
 pynmeagps
 pyserial
 pyyaml
-hass_client
+aiohttp
 requests
 python-dateutil
 paho-mqtt

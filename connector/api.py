@@ -1,20 +1,28 @@
 """Home Agent connector using Home Assistant API over HTTPS"""
 
-import json
 import asyncio
-from hass_client import HomeAssistantClient
+import aiohttp
+import ssl
+import time
 
 
 from service.version import __version__
 from service.log import LOGGER
-from service.const import TOPIC, PAYLOAD
+from service.const import ID, TYPE
 
-
+WEBSOCKET_TIMEOUT = 10  # seconds
 LOG_PREFIX = r"[homeassistant_api]"
+
+
 #########################################
 class Connector:
-
     name = "homeassistant_api"
+    websocket_url = None
+    _websocket = None
+    _ha_url = None
+    _sslcontext = None
+    _message_id = 1
+    _last_ping = 0
 
     #########################################
     def __init__(
@@ -27,102 +35,145 @@ class Connector:
         self._config = config
         self._client_id = client_id
 
-        self._request_id = 0
+        self._conn = aiohttp.TCPConnector()
+        self._event_loop = asyncio.get_event_loop()
+
         self._connected = False
         self._callback = None
         self._ha_version = None
-        self._client = HaClient(
-            f"wss://{self._config.api.host}/api/websocket", self._config.api.token
-        )
+        self._setup_urls()
 
-        # self.pool = ThreadPoolExecutor()
+    ##########################################
+    def _setup_urls(self) -> None:
+        """Setup Home-Assistant and Websocket URLs"""
+
+        server = self._config.api.host
+        port = self._config.api.port
+        proto = "http"
+
+        self.websocket_url = "ws"
+        if self._config.api.ssl:
+            self._sslcontext = ssl.create_default_context(
+                purpose=ssl.Purpose.CLIENT_AUTH
+            )
+            proto += "s"
+            self.websocket_url = proto
+
+        self._ha_url = f"{proto}://{server}:{port}"
+        self.websocket_url += f"://{server}:{port}/api/websocket"
 
     #########################################
     def start(self):
         """Start the connector"""
+
         LOGGER.info("%s API connecting to %s", LOG_PREFIX, self._config.api.host)
+        self._event_loop.run_until_complete(self._connect())
 
-        result = self._client.connect()
-        LOGGER.debug(result)
+    ##########################################
+    async def _connect(self) -> None:
+        """Connect to Websocket"""
 
-        # self._ha_version = result.get("ha_version")
-        LOGGER.info(
-            "%s API connecting to Homeassistant %s", LOG_PREFIX, self._ha_version
+        async with aiohttp.ClientSession(connector=self._conn) as session:
+            async with session.ws_connect(
+                self.websocket_url,
+                ssl=self._sslcontext,
+                timeout=WEBSOCKET_TIMEOUT,
+            ) as self._websocket:
+                await self._auth_ha()
+                await self._ping()
+
+    ##########################################
+    async def _auth_ha(self) -> None:
+        """Authenticate websocket connection to HA"""
+
+        LOGGER.info("Authenticating to: %s", self.websocket_url)
+
+        self._connected = False
+        msg = await self._websocket.receive_json()
+        assert msg[TYPE] == "auth_required", msg
+
+        await self._websocket.send_json(
+            {
+                TYPE: "auth",
+                "access_token": self._config.api.token,
+            }
         )
 
-        result = self.ws_request(
-            "auth", {"api_password": self._config.api.token}, False
-        )
-
-        _type = result.get("type")
-        if result is None or _type is None:
-            LOGGER.error(result)
-            return False
-
-        if _type == "auth_invalid":
-            LOGGER.error("%s API auth failed. %s", LOG_PREFIX, result.get("message"))
-            return False
-
-        return self.connected()
-
-    #########################################
-    def ws_request(self, _type, _data, _id=True):
-        """Send WS request and return response"""
-
-        _request = {}
-        if _type:
-            _request = {"type": _type}
-
-        if _type and _id:
-            _request["id"] = self._request_id
-
-        if _data:
-            _request.update(_data)
-
-        LOGGER.debug("ws request: %s", _request)
-        if len(_request) > 0:
-            message = json.dumps(_request)
+        msg = await self._websocket.receive_json()
+        if msg.get(TYPE) == "auth_ok":
+            LOGGER.info(
+                "Authenticated to Home Assistant version %s", msg.get("ha_version")
+            )
+            self._connected = True
         else:
-            message = ""
+            LOGGER.error("Failed to authenticate with Home Assistant")
 
-        response = ""
+    ##########################################
+    async def _ping(self):
+        """Send Ping to HA"""
 
-        LOGGER.debug("ws result: %s", response)
-        if not isinstance(response, str) or len(response) == 0:
-            LOGGER.error("%s Failed to get a WS response", LOG_PREFIX)
-            return None
+        if not self._connected:
+            return
 
-        result = json.loads(response)
-        self._request_id += 1
-        return result
+        # now = int(time.time())
+        # if now - self._last_ping < 30:
+        #    await asyncio.sleep(0.3)
+        #    return
+
+        await self._send_ws({TYPE: "ping"})
+        response = await self._websocket.receive_json(timeout=WEBSOCKET_TIMEOUT)
+        if response.get(TYPE) == "pong":
+            self._connected = True
+
+        else:
+            self._connected = False
+
+        self._last_ping = int(time.time())
+
+    ##########################################
+    async def _send_ws(self, message: dict) -> None:
+        """Send Websocket JSON message and increment message ID"""
+
+        if not self._connected:
+            LOGGER.error("WS not connected")
+            return
+
+        if not isinstance(message, dict):
+            LOGGER.error("Invalid WS message type")
+            return
+
+        message[ID] = self._message_id
+        LOGGER.debug("send_ws() message=%s", message)
+
+        await self._websocket.send_json(message)
+        self._message_id += 1
+
+        return await self._websocket.receive_json(timeout=WEBSOCKET_TIMEOUT)
 
     #########################################
     def stop(self):
         """Stop the connector"""
-        self._thread.stop()
+
+        self._connected_event.clear()
+        self._websocket = None
 
     #########################################
     def connected(self):
         """Return bool for connected status"""
-        self._connected = self.ping()
+
+        self._event_loop.run_until_complete(self._ping())
+
         if self._connected:
             self._connected_event.set()
         else:
             self._connected_event.clear()
+
         return self._connected
-
-    #########################################
-    def ping(self, topic=None):
-        """Send ping message"""
-
-        response = self.ws_request("ping")
-        if response and "pong" in response:
-            return True
-        return False
 
     #########################################
     def subscribe_to(self, topic):
         """Subscribe to topic"""
+
         LOGGER.debug("%s subscribe: %s", LOG_PREFIX, topic)
 
     #########################################
@@ -147,57 +198,19 @@ class Connector:
     def service(self, domain, service, **service_data):
         """Call a homeassistant service"""
 
-        self._client.trigger_service(
-            domain=domain, service=service, service_data=service_data
-        )
+        #self._client.trigger_service(
+        #    domain=domain, service=service, service_data=service_data
+        #)
 
     #########################################
     def set_state(self, entity_id, state, attrib=None):
-        """Set state and attribuest for entity"""
-        entity = self._client.get_entity(entity_id=entity_id)
+        """Set state and attributes for entity"""
 
-        entity.state.state = state
-        if attrib is not None:
-            for key, value in tuple(attrib.items()):
-                entity.state.attributes[key] = value
+        #entity = self._client.get_entity(entity_id=entity_id)
 
-        entity.set_state(entity.state)
+        #entity.state.state = state
+        #if attrib is not None:
+        #    for key, value in tuple(attrib.items()):
+        #        entity.state.attributes[key] = value
 
-
-#########################################
-class HaClient(HomeAssistantClient):
-    def __init__(self, url, token):
-        self._url = url
-        self._token = token
-        self.loop = asyncio.get_event_loop()
-        asyncio.set_event_loop(self.loop)
-        asyncio.events._set_running_loop(self.loop)
-        # super(HaClient, self).__new__(HomeAssistantClient)
-        self._async_init()
-
-    def __await__(self):
-        return self._async_init().__await__()
-
-    async def _async_init(self):
-        # self._client = await HomeAssistantClient(self._url, self._token)
-        # await self._client.__init__(self._url, self._token)
-        # self.websocket = await self._client.__aenter__()
-        return self
-
-    async def connect(self):
-        async with HomeAssistantClient(self._url, self._token) as client:
-            client.register_event_callback(log_events)
-            client.connect()
-            await asyncio.sleep(360)
-        await self.websocket.connect()
-        self._connected = await self.websocket.connected()
-        LOGGER.debug("connected=%s", self._connected)
-        return self.connected()
-
-
-#########################################
-def log_events(event: str, event_data: dict) -> None:
-    """Log node value changes."""
-
-    LOGGER.info("Received event: %s", event)
-    LOGGER.debug(event_data)
+        #entity.set_state(entity.state)
